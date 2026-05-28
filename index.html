@@ -229,12 +229,9 @@
     </div>
     <div class="card">
       <h2>⚽ Ergebnisse</h2>
-      <p class="hint"><span class="statusdot" id="resDot"></span><span id="resStatus">Ergebnisse werden automatisch geladen.</span> Du musst normalerweise nichts eintragen.</p>
-      <details>
-        <summary class="mini" style="cursor:pointer; padding:6px 0">Manuell nachhelfen (Notfall)…</summary>
-        <p class="tiny" style="margin:8px 0">Nur falls ein Ergebnis fehlt: hier überschreiben. Wird für alle übernommen.</p>
-        <div id="manualRes"></div>
-      </details>
+      <p class="hint"><span class="statusdot" id="resDot"></span><span id="resStatus">Ergebnisse werden automatisch geladen.</span></p>
+      <p class="tiny">Die Endstände zieht die App automatisch aus offenen WM-Daten und wertet sie für alle –
+        <b>du musst nichts eintragen</b>. Nach Anpfiff eines Spiels ist das Tippen dafür gesperrt.</p>
     </div>
   </section>
 </main>
@@ -393,6 +390,18 @@ function initFirebase(){
 
 function genId(n){ let s=""; const c="abcdefghjkmnpqrstuvwxyz23456789"; for(let i=0;i<n;i++) s+=c[Math.floor(Math.random()*c.length)]; return s; }
 
+// Rolle bestimmen (rein funktional -> unit-testbar):
+//  - expliziter Lehrer-Link (#r=ROOM&a=TOKEN)              -> Admin
+//  - #r=ROOM ohne Token, aber Token lokal gemerkt          -> Admin (aus localStorage)
+//  - frischer Aufruf GANZ OHNE Raum                        -> neues Spiel anlegen, Ersteller wird Admin
+//  - #r=ROOM (Schueler-Link), kein Token                   -> Schueler
+function decideAdmin(room, token, storedToken){
+  if(token)               return { admin:true,  token:token,       createRoom:false };
+  if(room && storedToken) return { admin:true,  token:storedToken, createRoom:false };
+  if(!room)               return { admin:true,  token:null,        createRoom:true  };
+  return                         { admin:false, token:null,        createRoom:false };
+}
+
 async function ensureRoom(){
   // Admin ohne Raum -> neuen Raum anlegen
   if(MODE==="fire" && ADMIN && !ROOM){
@@ -410,8 +419,17 @@ function attachListeners(){
     // gerade eingegebene Werte mit (evtl. veralteten) Server-Daten ueberschreibt.
     if(!hydrated && players[MYPID] && players[MYPID].tips) me.tips=players[MYPID].tips;
     hydrated=true; renderAll(); });
-  rref("state").on("value", s=>{ roomState=s.val()||{locked:false}; if(roomState.adminToken && ADMINTOKEN===roomState.adminToken) ADMIN=true; renderAll(); refreshTabs(); });
+  rref("state").on("value", s=>{ roomState=s.val()||{locked:false};
+    // Admin-Rolle gegen den echten Token verifizieren: passt der Token -> Admin, sonst KEIN Admin
+    // (verhindert, dass ein falscher/geratener #...&a=-Wert die Lehrer-UI freischaltet).
+    if(roomState.adminToken) ADMIN=(ADMINTOKEN===roomState.adminToken);
+    renderAll(); refreshTabs(); });
 }
+
+// Firebase-RTDB-Keys duerfen . # $ [ ] / NICHT enthalten. encodeURIComponent kodiert alle ausser
+// '.', '!', '~', '*', "'", '(', ')', '-', '_' -> verbliebene verbotene Zeichen (praktisch nur '.') explizit kodieren.
+// Sonst crasht z.B. der Spitzname "Lina.Blitz" die nicks-Transaktion und das Anmelden schlaegt fehl.
+function nickKey(lower){ return encodeURIComponent(lower).replace(/[.#$\[\]\/]/g, c=>"%"+c.charCodeAt(0).toString(16).toUpperCase()); }
 
 async function claimNick(name){
   const lower=name.trim().toLowerCase();
@@ -421,12 +439,12 @@ async function claimNick(name){
   const already=(await rref("players/"+MYPID).get()).val();
   if(locked && !already) return {ok:false, msg:"Die Anmeldung ist geschlossen. Frag deine Lehrkraft."};
   // Transaktion auf nick
-  const nref=rref("nicks/"+encodeURIComponent(lower));
+  const nref=rref("nicks/"+nickKey(lower));
   const tx=await nref.transaction(cur=> (cur===null||cur===MYPID)?MYPID:undefined );
   if(!tx.committed || tx.snapshot.val()!==MYPID) return {ok:false, msg:"Spitzname „"+esc(name)+"\" ist schon vergeben. Nimm einen anderen."};
   // alten Namen freigeben
   const oldName=LS("wmt_name");
-  if(oldName && oldName.toLowerCase()!==lower){ try{ await rref("nicks/"+encodeURIComponent(oldName.toLowerCase())).remove(); }catch(e){} }
+  if(oldName && oldName.toLowerCase()!==lower){ try{ await rref("nicks/"+nickKey(oldName.toLowerCase())).remove(); }catch(e){} }
   me.name=name; LS("wmt_name",name);
   players[MYPID]={name, tips:me.tips};   // lokal sofort als beigetreten markieren (kein Flackern der Join-Karte)
   await rref("players/"+MYPID).update({ name, ts:firebase.database.ServerValue.TIMESTAMP });
@@ -439,7 +457,7 @@ function pushTip(id, val){
 }
 function setLock(v){ if(MODE==="fire") rref("state/locked").set(!!v); else { roomState.locked=v; renderAll(); } }
 function kickPlayer(pid){
-  if(MODE==="fire"){ const p=players[pid]; if(p&&p.name) rref("nicks/"+encodeURIComponent(p.name.toLowerCase())).remove(); rref("players/"+pid).remove(); }
+  if(MODE==="fire"){ const p=players[pid]; if(p&&p.name) rref("nicks/"+nickKey(p.name.toLowerCase())).remove(); rref("players/"+pid).remove(); }
   else { delete players[pid]; renderAll(); }
 }
 
@@ -729,11 +747,16 @@ $("#joinBtn").addEventListener("click",async()=>{
     $("#joinBtn").textContent="Trotzdem nehmen ⚽"; nickAck=true; return;
   }
   $("#joinBtn").disabled=true;
-  const r=await claimNick(name);
-  $("#joinBtn").disabled=false;
-  if(!r.ok){ const wb=$("#nickWarn"); wb.innerHTML=r.msg; wb.classList.add("show","bad"); return; }
-  renderAll();
-  toast("Willkommen, "+name+"!");
+  try{
+    const r=await claimNick(name);
+    if(!r.ok){ const wb=$("#nickWarn"); wb.innerHTML=r.msg; wb.classList.add("show","bad"); return; }
+    renderAll();
+    toast("Willkommen, "+name+"!");
+  }catch(err){
+    toast("Verbindungsfehler – bitte nochmal versuchen",true);
+  }finally{
+    $("#joinBtn").disabled=false;
+  }
 });
 $("#changeNick").addEventListener("click",()=>{ $("#joinCard").classList.remove("hidden"); $("#tippWrap").classList.add("hidden"); $("#nickIn").value=me.name; $("#nickIn").focus(); });
 $("#lockToggle").addEventListener("change",e=>setLock(e.target.checked));
@@ -745,12 +768,16 @@ $("#copyAdmin").addEventListener("click",async()=>toast(await copyText($("#admin
   // Admin? token in URL ODER lokal gemerkt
   if(ADMINTOKEN) ADMIN=true;
   initFirebase();
+  let justCreated=false;
   if(MODE==="fire"){
-    if(ADMIN && ROOM && !ADMINTOKEN){ ADMINTOKEN=LS("wmt_admin_"+ROOM); }
-    await ensureRoom();
+    const stored = ROOM ? LS("wmt_admin_"+ROOM) : null;
+    const d = decideAdmin(ROOM, ADMINTOKEN, stored);
+    ADMIN = d.admin; if(d.token) ADMINTOKEN = d.token;
+    await ensureRoom();   // legt bei ADMIN && !ROOM ein neues Spiel an (Lehrer-Erstaufruf)
+    justCreated = d.createRoom && !!ROOM;
     if(ROOM){ attachListeners(); }
     else {
-      // Schüler ohne Raum -> Hinweis
+      // Sollte praktisch nicht eintreten (ohne Raum wird einer angelegt)
       $("#appSub").textContent="Kein Spiel-Code – bitte Lehrer-Link/QR nutzen";
     }
   } else {
@@ -759,6 +786,8 @@ $("#copyAdmin").addEventListener("click",async()=>toast(await copyText($("#admin
   }
   refreshTabs();
   renderAll();
+  // Frisch angelegtes Lehrer-Spiel: direkt zum QR/Einladen-Tab, damit der Lehrer sofort teilen kann.
+  if(justCreated && ADMIN) selectTab("share");
   pollResults(); setInterval(pollResults, RESULTS_POLL_MS);
 })();
 </script>
