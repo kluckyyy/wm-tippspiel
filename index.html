@@ -156,6 +156,10 @@
   </div>
   <!-- ===== TIPPEN (Schüler) ===== -->
   <section id="tab-tippen">
+    <div class="card hidden" id="removedNotice" style="background:var(--vermilion); color:var(--cream); border-color:var(--ink)">
+      <h2 style="color:var(--cream)">🚫 Du bist gerade raus</h2>
+      <p class="hint" style="color:var(--cream)">Deine Lehrkraft hat dich aus dem Tippspiel genommen. Spiele in dieser Zeit zählen <b>0 Punkte</b>. War das ein Versehen? Sprich deine Lehrkraft an – sie kann dich jederzeit wieder aufnehmen.</p>
+    </div>
     <div class="card" id="joinCard">
       <h2>👋 Mitmachen</h2>
       <p class="hint">Tippe einen <b>Spitznamen</b> (kein echter Name). Jeder Name geht nur <b>einmal</b> – so meldet sich niemand doppelt an.</p>
@@ -235,8 +239,13 @@
     </div>
     <div class="card">
       <h2>👥 Mitspieler <span class="pill" id="plCount">0</span></h2>
-      <p class="hint">Doppelte oder Quatsch-Namen kannst du hier entfernen.</p>
+      <p class="hint">Doppelte oder Quatsch-Namen kannst du hier entfernen. Entfernte landen unten im Backup und sind wiederherstellbar.</p>
       <div id="playerAdmin"></div>
+    </div>
+    <div class="card">
+      <h2>🗑️ Entfernt <span class="pill" id="rmCount">0</span></h2>
+      <p class="hint">Backup: rausgeworfene Mitspieler – <b>jederzeit wiederherstellbar</b> (Tipps bleiben erhalten). Spiele, die während der Sperrzeit angepfiffen werden, zählen für sie <b>0 Punkte</b>.</p>
+      <div id="removedAdmin"></div>
     </div>
     <div class="card">
       <h2>⚽ Ergebnisse</h2>
@@ -362,16 +371,22 @@ function pointsFor(tipStr, resArr){
   if((th-tg)===(eh-eg)) return PUNKTE.diff;
   return PUNKTE.tendenz;
 }
-function totalFor(tips, results){
-  let sum=0,exakt=0,getippt=0,gewertet=0;
+// Liegt der Anpfiff-Zeitpunkt (kt, ms) in einer Sperr-Phase? susp = [{f:from-ms, t:to-ms|null}]
+function inSusp(kt, susp){ if(kt==null||!susp||!susp.length) return false; return susp.some(s=> s && kt>=s.f && (s.t==null || kt<=s.t)); }
+// susp: Sperr-Phasen des Spielers; koTime(fixture)->Anpfiff-ms|null. Spiele in einer Sperr-Phase zählen 0.
+function totalFor(tips, results, susp, koTime){
+  let sum=0,exakt=0,getippt=0,gewertet=0,gesperrt=0;
   for(const f of FIXTURES){
     const tip=tips&&tips[f.id];
     if(parseTip(tip)) getippt++;
     const r=results[f.id];
-    const p=pointsFor(tip,r);                 // r vorhanden ⇒ immer eine Zahl (0:0-Default)
-    if(p!=null){ sum+=p; gewertet++; if(p===PUNKTE.exakt) exakt++; }
+    let p=pointsFor(tip,r);                    // r vorhanden ⇒ immer eine Zahl (0:0-Default)
+    if(p!=null){
+      if(susp && susp.length && koTime && inSusp(koTime(f), susp)){ p=0; gesperrt++; }   // während Sperre: 0
+      sum+=p; gewertet++; if(p===PUNKTE.exakt) exakt++;
+    }
   }
-  return {sum,exakt,getippt,gewertet};
+  return {sum,exakt,getippt,gewertet,gesperrt};
 }
 
 /* ================= STATE ================= */
@@ -457,6 +472,7 @@ async function claimNick(name, pass){
   // Sperre?
   const locked=(await rref("state/locked").get()).val();
   const already=(await rref("players/"+MYPID).get()).val();
+  if(already && already.removed) return {ok:false, msg:"Du wurdest von der Lehrkraft entfernt. Sprich sie an, falls das ein Versehen war."};
   if(locked && !already) return {ok:false, msg:"Die Anmeldung ist geschlossen. Frag deine Lehrkraft."};
   // Transaktion auf nick
   const nref=rref("nicks/"+nickKey(lower));
@@ -471,15 +487,28 @@ async function claimNick(name, pass){
   return {ok:true};
 }
 function pushTip(id, val){
+  if(players[MYPID] && players[MYPID].removed) return;   // entfernte/gesperrte Spieler tippen nicht
   me.tips[id]=val;
   if(MODE==="fire"){ rref("players/"+MYPID+"/tips/"+id).set(val); }
   else { players[MYPID]={name:me.name,tips:me.tips}; }
 }
 function setLock(v){ if(MODE==="fire") rref("state/locked").set(!!v); else { roomState.locked=v; renderAll(); } }
 function setClassPass(v){ const val=(v||"").trim(); if(MODE==="fire") rref("state/pass").set(val||null); else { roomState.pass=val||null; renderAll(); } }
+// Sanftes Entfernen: Spieler bleibt als Backup (removed:true), Tipps erhalten, Sperre-Phase startet jetzt.
 function kickPlayer(pid){
-  if(MODE==="fire"){ const p=players[pid]; if(p&&p.name) rref("nicks/"+nickKey(p.name.toLowerCase())).remove(); rref("players/"+pid).remove(); }
-  else { delete players[pid]; renderAll(); }
+  const p=players[pid]; if(!p) return;
+  const susp = Array.isArray(p.susp)? p.susp.slice() : [];
+  susp.push({ f: Date.now(), t: null });   // Sperre beginnt
+  if(MODE==="fire"){ rref("players/"+pid).update({ removed:true, susp }); }
+  else { players[pid]={...p, removed:true, susp}; renderAll(); }
+}
+// Wiederherstellen: removed:false, laufende Sperre-Phase beenden (Spiele dieser Phase bleiben 0).
+function restorePlayer(pid){
+  const p=players[pid]; if(!p) return;
+  const susp = Array.isArray(p.susp)? p.susp.slice() : [];
+  if(susp.length && susp[susp.length-1].t==null) susp[susp.length-1].t = Date.now();
+  if(MODE==="fire"){ rref("players/"+pid).update({ removed:false, susp }); }
+  else { players[pid]={...p, removed:false, susp}; renderAll(); }
 }
 
 /* ================= ERGEBNIS-POLLING ================= */
@@ -526,13 +555,14 @@ function nickWarn(raw){
 const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const flag=tk=>(TEAMS[tk]&&TEAMS[tk].fl)||"⚽"; const nameDE=tk=>(TEAMS[tk]&&TEAMS[tk].de)||tk;
-function kickoffPassed(f){ const m=fixMeta[f.id]; if(!m||!m.date) return false; try{
-  const tm=(m.time||"").match(/(\d{1,2}):(\d{2})/); if(!tm) return false;   // ohne Uhrzeit lieber NICHT sperren
+// Anpfiff-Zeitpunkt eines Spiels als ms (oder null wenn unbekannt).
+function kickoffTime(f){ const m=fixMeta[f.id]; if(!m||!m.date) return null; try{
+  const tm=(m.time||"").match(/(\d{1,2}):(\d{2})/); if(!tm) return null;   // ohne Uhrzeit unbekannt
   let off=0; const om=(m.time||"").match(/UTC([+-]?\d+)/); if(om&&om[1]!==undefined) off=parseInt(om[1],10)||0;
   const [y,mo,d]=m.date.split("-").map(Number);
-  const utc=Date.UTC(y,mo-1,d,+tm[1],+tm[2])-off*3600000;
-  return Date.now()>=utc;
-}catch(e){ return false; } }
+  return Date.UTC(y,mo-1,d,+tm[1],+tm[2])-off*3600000;
+}catch(e){ return null; } }
+function kickoffPassed(f){ const kt=kickoffTime(f); return kt!=null && Date.now()>=kt; }
 let fixMeta={};  // id -> {date,time,round} aus openfootball (optional)
 
 function isLocked(f){ return !!results[f.id] || kickoffPassed(f); }
@@ -549,12 +579,14 @@ function renderHeader(){
 }
 
 function renderTippen(){
-  const joined = !!(me.name && me.name.trim()) && (MODE!=="fire" || players[MYPID]);
-  $("#joinCard").classList.toggle("hidden", joined);
+  const iRemoved = !!(MODE==="fire" && players[MYPID] && players[MYPID].removed);   // selbst entfernt?
+  const joined = !iRemoved && !!(me.name && me.name.trim()) && (MODE!=="fire" || players[MYPID]);
+  $("#removedNotice").classList.toggle("hidden", !iRemoved);
+  $("#joinCard").classList.toggle("hidden", joined || iRemoved);
   $("#tippWrap").classList.toggle("hidden", !joined);
   const needPass = !!(roomState && roomState.pass);   // Passwort-Feld + Hinweis nur wenn Raum eins hat
-  $("#passIn").classList.toggle("hidden", joined || !needPass);
-  $("#passHint").classList.toggle("hidden", joined || !needPass);
+  $("#passIn").classList.toggle("hidden", joined || iRemoved || !needPass);
+  $("#passHint").classList.toggle("hidden", joined || iRemoved || !needPass);
   $("#nickIn").value!==me.name && (!document.activeElement||document.activeElement.id!=="nickIn") && ($("#nickIn").value=me.name);
   const w=nickWarn($("#nickIn").value); const wb=$("#nickWarn");
   if(w){ wb.innerHTML=w; wb.classList.add("show"); wb.classList.remove("bad"); } else wb.classList.remove("show");
@@ -639,7 +671,8 @@ function ptClass(p){ return p===PUNKTE.exakt?"pt4":p===PUNKTE.diff?"pt3":p===PUN
 function rankedPlayers(){
   const arr=[];
   const src = (MODE==="fire")? players : (me.name? {[MYPID]:{name:me.name,tips:me.tips}} : {});
-  for(const pid in src){ const p=src[pid]; if(!p||!p.name) continue; arr.push({pid, name:p.name, ...totalFor(p.tips||{}, results), me:pid===MYPID}); }
+  for(const pid in src){ const p=src[pid]; if(!p||!p.name||p.removed) continue;   // entfernte Spieler nicht werten/zeigen
+    arr.push({pid, name:p.name, ...totalFor(p.tips||{}, results, p.susp||[], kickoffTime), me:pid===MYPID}); }
   arr.sort((a,b)=> b.sum-a.sum||b.exakt-a.exakt||a.name.localeCompare(b.name));
   return arr;
 }
@@ -663,17 +696,32 @@ function renderAdmin(){
   if(!ADMIN) return;
   $("#lockToggle").checked=!!roomState.locked;
   $("#lockTxt").textContent= roomState.locked? "Anmeldung GESPERRT – niemand Neues kann beitreten." : "Anmeldung offen – neue Schüler können beitreten.";
-  const arr=Object.keys(players).map(pid=>({pid,...players[pid]})).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
-  $("#plCount").textContent=arr.length;
+  const all=Object.keys(players).map(pid=>({pid,...players[pid]})).filter(p=>p.name);
+  const active=all.filter(p=>!p.removed).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+  const gone=all.filter(p=>p.removed).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+  $("#plCount").textContent=active.length;
   const box=$("#playerAdmin"); box.innerHTML="";
-  if(!arr.length){ box.innerHTML='<div class="tiny">Noch niemand angemeldet.</div>'; }
-  arr.forEach(p=>{
+  if(!active.length){ box.innerHTML='<div class="tiny">Noch niemand angemeldet.</div>'; }
+  active.forEach(p=>{
     const n=p.tips?Object.values(p.tips).filter(parseTip).length:0;
     const row=document.createElement("div"); row.className="kv";
     row.innerHTML=`<span>${esc(p.name||"?")} <span class="tiny">(${n} Tipps)</span></span><button class="btn danger sm" data-kick="${p.pid}">raus</button>`;
     box.appendChild(row);
   });
-  box.querySelectorAll("[data-kick]").forEach(b=>b.addEventListener("click",()=>{ if(confirm("Diesen Mitspieler entfernen?")){ kickPlayer(b.dataset.kick); toast("Entfernt"); } }));
+  box.querySelectorAll("[data-kick]").forEach(b=>b.addEventListener("click",()=>{ if(confirm("Diesen Mitspieler entfernen?\n(Wiederherstellbar – Spiele während der Sperrzeit zählen 0 Punkte.)")){ kickPlayer(b.dataset.kick); toast("Entfernt – wiederherstellbar"); } }));
+  // Entfernte (Backup / wiederherstellbar)
+  const rmCount=$("#rmCount"); if(rmCount) rmCount.textContent=gone.length;
+  const rbox=$("#removedAdmin");
+  if(rbox){ rbox.innerHTML="";
+    if(!gone.length){ rbox.innerHTML='<div class="tiny">Niemand entfernt.</div>'; }
+    gone.forEach(p=>{
+      const n=p.tips?Object.values(p.tips).filter(parseTip).length:0;
+      const row=document.createElement("div"); row.className="kv";
+      row.innerHTML=`<span>${esc(p.name||"?")} <span class="tiny">(${n} Tipps · entfernt)</span></span><button class="btn sec sm" data-restore="${p.pid}">wiederherstellen</button>`;
+      rbox.appendChild(row);
+    });
+    rbox.querySelectorAll("[data-restore]").forEach(b=>b.addEventListener("click",()=>{ restorePlayer(b.dataset.restore); toast("Wiederhergestellt ✓"); }));
+  }
 }
 function renderShare(){
   if(!ADMIN||!ROOM) return;
