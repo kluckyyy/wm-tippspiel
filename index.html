@@ -160,6 +160,7 @@
       <h2>👋 Mitmachen</h2>
       <p class="hint">Tippe einen <b>Spitznamen</b> (kein echter Name). Jeder Name geht nur <b>einmal</b> – so meldet sich niemand doppelt an.</p>
       <input type="text" id="nickIn" maxlength="22" placeholder="z.B. TorJäger, Pixelkick, Lina_Blitz" autocomplete="off">
+      <input type="text" id="passIn" maxlength="40" placeholder="🔑 Klassen-Passwort" autocomplete="off" class="hidden" style="margin-top:10px">
       <div class="savedtag" id="savedTag">✓ gespeichert</div>
       <div class="warnbox" id="nickWarn"></div>
       <div style="margin-top:12px"><button class="btn" id="joinBtn">Los geht's ⚽</button></div>
@@ -202,6 +203,15 @@
         <div class="qrcode" id="qrcode"></div>
         <div class="linkbox" id="studentLink">—</div>
         <button class="btn sec" id="copyLink" style="margin-top:4px">Link kopieren</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>🔑 Klassen-Passwort <span class="pill">optional</span></h2>
+      <p class="hint">Wenn gesetzt, müssen Schüler dieses Wort beim Mitmachen eingeben. <b>Leer lassen = ohne Passwort.</b> Sag das Wort deiner Klasse.</p>
+      <input type="text" id="classPassIn" maxlength="40" placeholder="z.B. Tor2026" autocomplete="off">
+      <div class="btn-row" style="margin-top:10px; align-items:center">
+        <button class="btn sec sm" id="savePass">Passwort speichern</button>
+        <span class="savedtag" id="passSaved">✓ gesetzt</span>
       </div>
     </div>
     <div class="card">
@@ -431,9 +441,15 @@ function attachListeners(){
 // Sonst crasht z.B. der Spitzname "Lina.Blitz" die nicks-Transaktion und das Anmelden schlaegt fehl.
 function nickKey(lower){ return encodeURIComponent(lower).replace(/[.#$\[\]\/]/g, c=>"%"+c.charCodeAt(0).toString(16).toUpperCase()); }
 
-async function claimNick(name){
+// Optionales Klassen-Passwort: kein Passwort gesetzt -> immer ok; sonst muss die Eingabe passen.
+function checkPass(roomPass, entered){ return !roomPass ? true : (String(entered||"").trim() === String(roomPass).trim()); }
+
+async function claimNick(name, pass){
   const lower=name.trim().toLowerCase();
   if(MODE!=="fire"){ me.name=name; LS("wmt_name",name); players[MYPID]={name,tips:me.tips}; return {ok:true}; }
+  // Klassen-Passwort (falls gesetzt)?
+  const roomPass=(await rref("state/pass").get()).val();
+  if(roomPass && !checkPass(roomPass, pass)) return {ok:false, msg:"Falsches Klassen-Passwort. Frag deine Lehrkraft."};
   // Sperre?
   const locked=(await rref("state/locked").get()).val();
   const already=(await rref("players/"+MYPID).get()).val();
@@ -456,6 +472,7 @@ function pushTip(id, val){
   else { players[MYPID]={name:me.name,tips:me.tips}; }
 }
 function setLock(v){ if(MODE==="fire") rref("state/locked").set(!!v); else { roomState.locked=v; renderAll(); } }
+function setClassPass(v){ const val=(v||"").trim(); if(MODE==="fire") rref("state/pass").set(val||null); else { roomState.pass=val||null; renderAll(); } }
 function kickPlayer(pid){
   if(MODE==="fire"){ const p=players[pid]; if(p&&p.name) rref("nicks/"+nickKey(p.name.toLowerCase())).remove(); rref("players/"+pid).remove(); }
   else { delete players[pid]; renderAll(); }
@@ -531,6 +548,7 @@ function renderTippen(){
   const joined = !!(me.name && me.name.trim()) && (MODE!=="fire" || players[MYPID]);
   $("#joinCard").classList.toggle("hidden", joined);
   $("#tippWrap").classList.toggle("hidden", !joined);
+  $("#passIn").classList.toggle("hidden", joined || !(roomState && roomState.pass));   // Passwort-Feld nur wenn Raum eins hat
   $("#nickIn").value!==me.name && (!document.activeElement||document.activeElement.id!=="nickIn") && ($("#nickIn").value=me.name);
   const w=nickWarn($("#nickIn").value); const wb=$("#nickWarn");
   if(w){ wb.innerHTML=w; wb.classList.add("show"); wb.classList.remove("bad"); } else wb.classList.remove("show");
@@ -657,6 +675,7 @@ function renderShare(){
   const stud=base+"#r="+ROOM;
   const adm=base+"#r="+ROOM+"&a="+(ADMINTOKEN||roomState.adminToken||"");
   $("#studentLink").textContent=stud; $("#adminLink").textContent=adm;
+  const cp=$("#classPassIn"); if(cp && document.activeElement!==cp) cp.value=(roomState&&roomState.pass)||"";
   const qbox=$("#qrcode");
   if(qbox && qbox.dataset.for!==stud && typeof qrcode!=="undefined"){
     try{ const qr=qrcode(0,"M"); qr.addData(stud); qr.make(); qbox.innerHTML=qr.createSvgTag({cellSize:6,margin:2}); qbox.dataset.for=stud; }catch(e){}
@@ -748,7 +767,7 @@ $("#joinBtn").addEventListener("click",async()=>{
   }
   $("#joinBtn").disabled=true;
   try{
-    const r=await claimNick(name);
+    const r=await claimNick(name, $("#passIn").value);
     if(!r.ok){ const wb=$("#nickWarn"); wb.innerHTML=r.msg; wb.classList.add("show","bad"); return; }
     renderAll();
     toast("Willkommen, "+name+"!");
@@ -760,6 +779,12 @@ $("#joinBtn").addEventListener("click",async()=>{
 });
 $("#changeNick").addEventListener("click",()=>{ $("#joinCard").classList.remove("hidden"); $("#tippWrap").classList.add("hidden"); $("#nickIn").value=me.name; $("#nickIn").focus(); });
 $("#lockToggle").addEventListener("change",e=>setLock(e.target.checked));
+$("#savePass").addEventListener("click",()=>{
+  const v=$("#classPassIn").value.trim();
+  setClassPass(v);
+  const tag=$("#passSaved"); tag.textContent=v?"✓ gesetzt":"✓ entfernt"; tag.classList.add("show"); setTimeout(()=>tag.classList.remove("show"),1800);
+  toast(v?"Klassen-Passwort gesetzt ✓":"Passwort entfernt",false);
+});
 $("#copyLink").addEventListener("click",async()=>toast(await copyText($("#studentLink").textContent)?"Schüler-Link kopiert ✓":"Konnte nicht kopieren",false));
 $("#copyAdmin").addEventListener("click",async()=>toast(await copyText($("#adminLink").textContent)?"Lehrer-Link kopiert ✓":"Konnte nicht kopieren",false));
 
