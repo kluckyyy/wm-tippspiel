@@ -1,0 +1,39 @@
+{
+  "_kommentar": "OPTIONALE, gehaertete Firebase-Realtime-DB-Regeln fuer das WM-Tippspiel. Ohne Login (kein Auth), aber mit Struktur-/Groessenpruefung statt komplett offen. Gegen das App-Datenmodell getestet. Quick-Start-Alternative siehe README (komplett offen). Einsetzen: Firebase-Konsole -> Realtime Database -> Reiter 'Regeln' -> einfuegen -> Veroeffentlichen.",
+  "rules": {
+    "rooms": {
+      "$room": {
+        "state": {
+          ".read": true,
+          ".write": true,
+          "created":    { ".validate": "newData.isNumber()" },
+          "adminToken": { ".validate": "newData.isString() && newData.val().length <= 32" },
+          "locked":     { ".validate": "newData.isBoolean()" },
+          "overrides": {
+            "$mid": { ".validate": "newData.isString() && newData.val().length <= 7" }
+          },
+          "$other": { ".validate": false }
+        },
+        "players": {
+          ".read": true,
+          "$pid": {
+            ".write": true,
+            "name": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 24" },
+            "ts":   { ".validate": "newData.isNumber()" },
+            "tips": {
+              "$mid": { ".validate": "newData.isString() && newData.val().length <= 7" }
+            },
+            "$other": { ".validate": false }
+          }
+        },
+        "nicks": {
+          ".read": true,
+          "$nick": {
+            ".write": true,
+            ".validate": "newData.isString() && newData.val().length <= 40"
+          }
+        }
+      }
+    }
+  }
+}

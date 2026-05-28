@@ -150,6 +150,10 @@
 </header>
 
 <main>
+  <div id="offlineBanner" class="card hidden" style="background:var(--yellow); border-color:var(--ink); box-shadow:5px 5px 0 var(--vermilion)">
+    <b id="offlineTitle" style="font-family:var(--font-display); font-size:18px"></b>
+    <div class="tiny" id="offlineMsg" style="margin-top:5px; font-weight:600; color:var(--ink)"></div>
+  </div>
   <!-- ===== TIPPEN (Schüler) ===== -->
   <section id="tab-tippen">
     <div class="card" id="joinCard">
@@ -173,7 +177,7 @@
       <div id="groups"></div>
 
       <div class="card" id="submitCard">
-        <button class="btn" id="checkBtn">✅ Tipps prüfen & abschicken</button>
+        <button class="btn" id="checkBtn">✅ Tipps prüfen</button>
         <div class="warnbox" id="submitWarn"></div>
         <p class="tiny" style="margin-top:10px">Nicht getippte Spiele zählen automatisch als <b>0:0</b>. Deine Tipps sind sofort gespeichert – du kannst jederzeit nachbessern.</p>
       </div>
@@ -368,7 +372,7 @@ let me = { name: LS("wmt_name")||"", tips:{} };
 let players = {};            // pid -> {name,tips}
 let roomState = { locked:false };
 let results = {};            // fixtureId -> [h,g]
-let db=null, fbOk=false;
+let db=null, fbOk=false, hydrated=false;
 
 /* ---- URL: #r=ROOM&a=TOKEN ---- */
 (function parseUrl(){
@@ -392,7 +396,7 @@ function genId(n){ let s=""; const c="abcdefghjkmnpqrstuvwxyz23456789"; for(let 
 async function ensureRoom(){
   // Admin ohne Raum -> neuen Raum anlegen
   if(MODE==="fire" && ADMIN && !ROOM){
-    ROOM=genId(6); ADMINTOKEN=genId(10);
+    ROOM=genId(6); ADMINTOKEN=genId(14);
     await rref("state").update({ created:firebase.database.ServerValue.TIMESTAMP, adminToken:ADMINTOKEN, locked:false });
     LS("wmt_admin_"+ROOM, ADMINTOKEN);
     location.hash="r="+ROOM+"&a="+ADMINTOKEN;
@@ -400,7 +404,12 @@ async function ensureRoom(){
 }
 
 function attachListeners(){
-  rref("players").on("value", s=>{ players=s.val()||{}; if(players[MYPID]&&players[MYPID].tips) me.tips=players[MYPID].tips; renderAll(); });
+  rref("players").on("value", s=>{ players=s.val()||{};
+    // Eigene Tipps nur EINMAL vom Server uebernehmen (Rejoin/Reload) – danach ist das lokale Geraet
+    // alleiniger Autor der eigenen Tipps. Verhindert, dass ein Listener-Event waehrend des Tippens
+    // gerade eingegebene Werte mit (evtl. veralteten) Server-Daten ueberschreibt.
+    if(!hydrated && players[MYPID] && players[MYPID].tips) me.tips=players[MYPID].tips;
+    hydrated=true; renderAll(); });
   rref("state").on("value", s=>{ roomState=s.val()||{locked:false}; if(roomState.adminToken && ADMINTOKEN===roomState.adminToken) ADMIN=true; renderAll(); refreshTabs(); });
 }
 
@@ -414,11 +423,12 @@ async function claimNick(name){
   // Transaktion auf nick
   const nref=rref("nicks/"+encodeURIComponent(lower));
   const tx=await nref.transaction(cur=> (cur===null||cur===MYPID)?MYPID:undefined );
-  if(!tx.committed || tx.snapshot.val()!==MYPID) return {ok:false, msg:"Spitzname „"+name+"\" ist schon vergeben. Nimm einen anderen."};
+  if(!tx.committed || tx.snapshot.val()!==MYPID) return {ok:false, msg:"Spitzname „"+esc(name)+"\" ist schon vergeben. Nimm einen anderen."};
   // alten Namen freigeben
   const oldName=LS("wmt_name");
   if(oldName && oldName.toLowerCase()!==lower){ try{ await rref("nicks/"+encodeURIComponent(oldName.toLowerCase())).remove(); }catch(e){} }
   me.name=name; LS("wmt_name",name);
+  players[MYPID]={name, tips:me.tips};   // lokal sofort als beigetreten markieren (kein Flackern der Join-Karte)
   await rref("players/"+MYPID).update({ name, ts:firebase.database.ServerValue.TIMESTAMP });
   return {ok:true};
 }
@@ -467,9 +477,9 @@ function nickWarn(raw){
   const name=(raw||"").trim(); if(name.length<2) return null;
   const tk=name.split(/\s+/).filter(Boolean);
   if(tk.length>=2&&tk.length<=3&&!/\d/.test(name)&&tk.every(t=>NAME_TOKEN.test(t)))
-    return "🤔 Das sieht nach einem <b>echten Namen</b> aus. Nimm lieber einen Spitznamen, z.B. <i>"+tk[0]+"_Blitz</i>.";
+    return "🤔 Das sieht nach einem <b>echten Namen</b> aus. Nimm lieber einen Spitznamen, z.B. <i>"+esc(tk[0])+"_Blitz</i>.";
   if(tk.length===1&&!/\d/.test(name)&&/^[a-zäöü]+$/i.test(name)&&COMMON_FIRST.has(name.toLowerCase()))
-    return "🤔 „"+name+"\" ist ein verbreiteter <b>Vorname</b>. Wenn das dein echter Name ist, denk dir lieber einen Spitznamen aus.";
+    return "🤔 „"+esc(name)+"\" ist ein verbreiteter <b>Vorname</b>. Wenn das dein echter Name ist, denk dir lieber einen Spitznamen aus.";
   return null;
 }
 
@@ -478,10 +488,10 @@ const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const flag=tk=>(TEAMS[tk]&&TEAMS[tk].fl)||"⚽"; const nameDE=tk=>(TEAMS[tk]&&TEAMS[tk].de)||tk;
 function kickoffPassed(f){ const m=fixMeta[f.id]; if(!m||!m.date) return false; try{
-  let off=0; const mt=(m.time||"").match(/UTC([+-]\d+)/); if(mt) off=parseInt(mt[1],10);
-  const tm=(m.time||"").match(/(\d{1,2}):(\d{2})/); const hh=tm?+tm[1]:23, mm=tm?+tm[2]:59;
+  const tm=(m.time||"").match(/(\d{1,2}):(\d{2})/); if(!tm) return false;   // ohne Uhrzeit lieber NICHT sperren
+  let off=0; const om=(m.time||"").match(/UTC([+-]?\d+)/); if(om&&om[1]!==undefined) off=parseInt(om[1],10)||0;
   const [y,mo,d]=m.date.split("-").map(Number);
-  const utc=Date.UTC(y,mo-1,d,hh,mm)-off*3600000;
+  const utc=Date.UTC(y,mo-1,d,+tm[1],+tm[2])-off*3600000;
   return Date.now()>=utc;
 }catch(e){ return false; } }
 let fixMeta={};  // id -> {date,time,round} aus openfootball (optional)
@@ -531,7 +541,7 @@ function renderTippen(){
       const mt=fixMeta[f.id];
       let s="";
       if(r){ const shown=t?(t[0]+":"+t[1]):"0:0"; s='Endstand <b>'+r[0]+':'+r[1]+'</b> · dein Tipp <span class="mine">'+shown+'</span>'+(t?'':' (nicht getippt)'); }
-      else if(mt&&mt.date) s=fmtDate(mt.date)+(mt.time?(" · "+mt.time.replace(/ UTC.*/,"")):"");
+      else if(mt&&mt.date) s=fmtKick(mt);
       resEl.innerHTML=s;
     }
   }
@@ -539,6 +549,18 @@ function renderTippen(){
   $("#progBar").style.width=(got/72*100)+"%";
 }
 function fmtDate(iso){ try{ const [y,m,d]=iso.split("-"); return d+"."+m+"."; }catch(e){ return iso; } }
+// Anpfiff in der LOKALEN Zeitzone des Geraets (Deutschland) anzeigen – openfootball liefert Stadion-Ortszeit (z.B. "20:00 UTC-4")
+function fmtKick(mt){
+  if(!mt||!mt.date) return "";
+  try{
+    const tm=(mt.time||"").match(/(\d{1,2}):(\d{2})/); if(!tm) return fmtDate(mt.date);
+    let off=0; const om=(mt.time||"").match(/UTC([+-]?\d+)/); if(om&&om[1]!==undefined) off=parseInt(om[1],10)||0;
+    const [y,mo,d]=mt.date.split("-").map(Number);
+    const dt=new Date(Date.UTC(y,mo-1,d,+tm[1],+tm[2])-off*3600000);
+    const p=n=>String(n).padStart(2,"0");
+    return p(dt.getDate())+"."+p(dt.getMonth()+1)+". · "+p(dt.getHours())+":"+p(dt.getMinutes())+" Uhr";
+  }catch(e){ return fmtDate(mt.date); }
+}
 function buildGroups(box){
   box.innerHTML="";
   Object.keys(GROUPS).forEach((g,gi)=>{
@@ -622,7 +644,19 @@ function renderShare(){
     try{ const qr=qrcode(0,"M"); qr.addData(stud); qr.make(); qbox.innerHTML=qr.createSvgTag({cellSize:6,margin:2}); qbox.dataset.for=stud; }catch(e){}
   }
 }
-function renderAll(){ renderHeader(); renderTippen(); renderBoard(); renderAdmin(); renderShare(); }
+function renderBanner(){
+  const b=$("#offlineBanner"); if(!b) return;
+  if(MODE==="fire"){ b.classList.add("hidden"); return; }
+  b.classList.remove("hidden");
+  if(!configOk()){
+    $("#offlineTitle").textContent="⚠️ Vorschau-Modus (kein Live-Sync)";
+    $("#offlineMsg").textContent="Firebase ist noch nicht eingerichtet. Du kannst alles ausprobieren, aber Tipps bleiben nur auf diesem Gerät – Schüler können noch nicht beitreten.";
+  } else {
+    $("#offlineTitle").textContent="⚠️ Keine Verbindung – Tipps werden NICHT gespeichert";
+    $("#offlineMsg").textContent="Der Server ist gerade nicht erreichbar. Bitte WLAN/Internet prüfen und die Seite neu laden, sonst gehen deine Tipps verloren.";
+  }
+}
+function renderAll(){ renderBanner(); renderHeader(); renderTippen(); renderBoard(); renderAdmin(); renderShare(); }
 
 /* ================= TABS ================= */
 function refreshTabs(){
@@ -677,7 +711,9 @@ function scrollToFixture(id){
 
 /* ================= EVENTS ================= */
 $("#checkBtn").addEventListener("click",runCheck);
+let nickAck=false;   // Bestaetigung, falls Eingabe nach einem echten Namen aussieht
 $("#nickIn").addEventListener("input",e=>{
+  nickAck=false; $("#joinBtn").textContent="Los geht's ⚽";
   const w=nickWarn(e.target.value), wb=$("#nickWarn");
   if(w){ wb.innerHTML=w; wb.classList.add("show"); wb.classList.remove("bad"); } else wb.classList.remove("show");
 });
@@ -685,6 +721,13 @@ $("#nickIn").addEventListener("keydown",e=>{ if(e.key==="Enter") $("#joinBtn").c
 $("#joinBtn").addEventListener("click",async()=>{
   const name=$("#nickIn").value.trim();
   if(name.length<2){ toast("Bitte einen Spitznamen eingeben",true); return; }
+  const warn=nickWarn(name);
+  if(warn && !nickAck){   // sieht nach echtem Namen aus -> einmal bestaetigen lassen (Datenschutz)
+    const wb=$("#nickWarn");
+    wb.innerHTML=warn+"<div style='margin-top:8px; font-weight:800'>Ist das wirklich dein Spitzname? Dann tippe nochmal auf den Button.</div>";
+    wb.classList.add("show"); wb.classList.remove("bad");
+    $("#joinBtn").textContent="Trotzdem nehmen ⚽"; nickAck=true; return;
+  }
   $("#joinBtn").disabled=true;
   const r=await claimNick(name);
   $("#joinBtn").disabled=false;
