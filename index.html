@@ -172,6 +172,9 @@
   .mini{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft)}
   .tiny{font-size:11px; color:var(--ink-soft); font-weight:500}
   .kv{display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:2px dotted var(--paper-deep); font-size:14px; font-weight:700} .kv:last-child{border-bottom:none}
+  .rm-row{padding:11px 0; border-bottom:2px dotted var(--paper-deep)} .rm-row:last-child{border-bottom:none}
+  .rm-info{font-weight:700; font-size:14px; margin-bottom:9px}
+  .rm-actions{display:flex; gap:8px; flex-wrap:wrap} .rm-actions .btn{flex:1; min-width:140px}
   hr.sep{border:none; border-top:2px dashed var(--ink); opacity:.25; margin:16px 0}
   .hidden{display:none !important}
 
@@ -334,7 +337,7 @@
     </div>
     <div class="card">
       <h2>🗑️ Entfernt <span class="pill" id="rmCount">0</span></h2>
-      <p class="hint">Backup: rausgeworfene Mitspieler – <b>jederzeit wiederherstellbar</b> (Tipps bleiben erhalten). Spiele, die während der Sperrzeit angepfiffen werden, zählen für sie <b>0 Punkte</b>.</p>
+      <p class="hint">Backup: rausgeworfene Mitspieler – pro Person <b>individuell</b>: <b>↩︎ Zurückholen</b> (Tipps bleiben erhalten; Spiele der Sperrzeit zählen 0 Punkte) oder <b>🗑 Endgültig löschen</b> (Tipps weg, Spitzname wird wieder frei – nicht umkehrbar).</p>
       <div id="removedAdmin"></div>
     </div>
     <div class="card">
@@ -620,6 +623,14 @@ function restorePlayer(pid){
   if(susp.length && susp[susp.length-1].t==null) susp[susp.length-1].t = Date.now();
   if(MODE==="fire"){ rref("players/"+pid).update({ removed:false, susp }); }
   else { players[pid]={...p, removed:false, susp}; renderAll(); }
+}
+// Endgültig löschen: Spieler komplett entfernen + Spitzname wieder freigeben (nicht wiederherstellbar).
+function purgePlayer(pid){
+  const p=players[pid]; if(!p) return;
+  if(MODE==="fire"){
+    if(p.name){ try{ rref("nicks/"+nickKey(String(p.name).toLowerCase())).remove(); }catch(e){} }   // Spitzname wieder frei
+    rref("players/"+pid).remove();
+  } else { delete players[pid]; renderAll(); }
 }
 
 /* ================= ERGEBNIS-POLLING ================= */
@@ -995,11 +1006,23 @@ function renderAdmin(){
     if(!gone.length){ rbox.innerHTML='<div class="tiny">Niemand entfernt.</div>'; }
     gone.forEach(p=>{
       const n=p.tips?Object.values(p.tips).filter(parseTip).length:0;
-      const row=document.createElement("div"); row.className="kv";
-      row.innerHTML=`<span>${esc(p.name||"?")} <span class="tiny">(${n} Tipps · entfernt)</span></span><button class="btn sec sm" data-restore="${p.pid}">wiederherstellen</button>`;
+      const last=Array.isArray(p.susp)&&p.susp.length?p.susp[p.susp.length-1]:null;   // letzte Sperr-Phase
+      let seit=""; if(last&&last.f){ try{ seit=" · seit "+new Date(last.f).toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"}); }catch(e){} }
+      const row=document.createElement("div"); row.className="rm-row";
+      row.innerHTML=`<div class="rm-info">${esc(p.name||"?")} <span class="tiny">(${n} Tipps · entfernt${seit})</span></div>
+        <div class="rm-actions">
+          <button class="btn sec sm" data-restore="${p.pid}">↩︎ Zurückholen</button>
+          <button class="btn danger sm" data-del="${p.pid}">🗑 Endgültig löschen</button>
+        </div>`;
       rbox.appendChild(row);
     });
     rbox.querySelectorAll("[data-restore]").forEach(b=>b.addEventListener("click",()=>{ restorePlayer(b.dataset.restore); toast("Wiederhergestellt ✓"); }));
+    rbox.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",()=>{
+      const p=players[b.dataset.del];
+      if(confirm('„'+((p&&p.name)||"Spieler")+'" ENDGÜLTIG löschen?\nTipps werden gelöscht und der Spitzname wird wieder frei. Das lässt sich NICHT rückgängig machen.')){
+        purgePlayer(b.dataset.del); toast("Endgültig gelöscht");
+      }
+    }));
   }
 }
 function renderShare(){
