@@ -197,6 +197,20 @@
   .toast{position:fixed; left:50%; bottom:84px; transform:translateX(-50%) translateY(20px); background:var(--green); color:var(--cream); border:2.5px solid var(--ink); padding:11px 18px; border-radius:10px; font-weight:800; font-size:13px; text-transform:uppercase; letter-spacing:.04em; opacity:0; pointer-events:none; transition:.25s; z-index:200; box-shadow:4px 4px 0 var(--ink)}
   .toast.show{opacity:1; transform:translateX(-50%) translateY(0)} .toast.err{background:var(--vermilion)}
 
+  /* Start-Regeln (Pflicht-Bestätigung) */
+  .rules-gate{position:fixed; inset:0; z-index:300; background:rgba(12,12,12,.74); display:flex; align-items:center; justify-content:center; padding:18px; overflow:auto}
+  .rules-gate.hidden{display:none}
+  .rules-box{background:var(--cream); border:3px solid var(--ink); border-radius:16px; box-shadow:7px 7px 0 var(--ink); max-width:440px; width:100%; padding:22px 20px; margin:auto; animation:pop .3s both}
+  .rules-badge{width:54px; height:54px; display:grid; place-items:center; font-size:29px; background:var(--yellow); border:3px solid var(--ink); border-radius:50%; box-shadow:3px 3px 0 var(--ink); transform:rotate(-7deg); margin-bottom:12px}
+  .rules-box h2{font-family:var(--font-display); font-weight:400; font-size:28px; text-transform:uppercase; letter-spacing:.01em; margin:0 0 6px}
+  .rules-lead{font-size:14px; font-weight:600; color:var(--ink-soft); margin:0 0 14px}
+  .rules-list{list-style:none; padding:0; margin:0 0 16px; display:flex; flex-direction:column; gap:10px}
+  .rules-list li{position:relative; padding:11px 12px 11px 40px; background:var(--paper); border:2.5px solid var(--ink); border-radius:10px; font-size:13.5px; font-weight:600; line-height:1.4}
+  .rules-list li::before{content:"✓"; position:absolute; left:13px; top:9px; font-family:var(--font-display); color:var(--green); font-size:18px}
+  .rules-check{display:flex; align-items:flex-start; gap:10px; font-size:13.5px; font-weight:700; color:var(--ink); margin:0 0 14px; cursor:pointer; text-transform:none; letter-spacing:0}
+  .rules-check input{width:22px; height:22px; flex:none; accent-color:var(--vermilion); margin:1px 0 0}
+  #rulesBtn:disabled{opacity:.45; cursor:not-allowed}
+
   .statusdot{display:inline-block; width:9px; height:9px; border-radius:50%; background:var(--ink-soft); margin-right:5px; vertical-align:middle}
   .statusdot.on{background:var(--green)} .statusdot.off{background:var(--vermilion)}
 
@@ -211,6 +225,22 @@
 </style>
 </head>
 <body>
+
+<!-- ===== START-REGELN (muss angenommen werden) ===== -->
+<div id="rulesGate" class="rules-gate" role="dialog" aria-modal="true" aria-labelledby="rulesTitle">
+  <div class="rules-box">
+    <div class="rules-badge">⚽</div>
+    <h2 id="rulesTitle">Kurz vor dem Anpfiff!</h2>
+    <p class="rules-lead">Bevor du mitmachst – bitte lesen und bestätigen:</p>
+    <ul class="rules-list">
+      <li><b>Kein echter Name.</b> Weder deiner noch der von anderen. Denk dir einen <b>Spitznamen</b> aus (z.B. TorJäger, Pixelkick, Lina_Blitz).</li>
+      <li><b>Sei fair &amp; freundlich.</b> Keine Beleidigungen, keine gemeinen, anstößigen oder diskriminierenden Wörter.</li>
+      <li><b>Kein Quatsch.</b> Wer sich nicht daran hält, kann von der Lehrkraft jederzeit entfernt werden.</li>
+    </ul>
+    <label class="rules-check"><input type="checkbox" id="rulesAgree"><span>Ich habe die Regeln gelesen und halte mich daran.</span></label>
+    <button class="btn" id="rulesBtn" disabled>Verstanden – los geht's ⚽</button>
+  </div>
+</div>
 
 <header>
   <div class="masthead">
@@ -253,6 +283,7 @@
         </div>
         <div class="progress" style="margin-top:10px"><div id="progBar"></div></div>
         <div class="mini" id="tipCount" style="margin-top:8px">0 / 72 getippt</div>
+        <div class="savedtag" id="tipSaved" style="margin-top:4px">✓ Zwischenstand gespeichert</div>
       </div>
       <div class="card" id="nextCard">
         <h2 style="margin-bottom:4px">⏱️ Als Nächstes</h2>
@@ -373,6 +404,7 @@ const FIREBASE_CONFIG = {
 const RESULTS_URL = "https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json";
 const RESULTS_POLL_MS = 90000;
 const PUNKTE = { exakt:4, diff:3, tendenz:2 };
+const RULES_VERSION = "1";   // hochzählen, wenn die Regeln geändert werden -> alle müssen neu bestätigen
 
 /* ================= TEAMS / GRUPPEN ================= */
 const TEAMS = {
@@ -454,6 +486,8 @@ function parseResults(json){
 /* ================= PUNKTE ================= */
 const sign=x=> x>0?1:x<0?-1:0;
 function parseTip(str){ if(!str||typeof str!=="string"||str.indexOf(":")<0) return null; const a=str.split(":"); const h=parseInt(a[0],10),g=parseInt(a[1],10); if(isNaN(h)||isNaN(g)) return null; return [h,g]; }
+// Roh-Anzeige eines (auch unvollständigen) Tipps: "2:1"->["2","1"], "2:"->["2",""], ":1"->["","1"], sonst ["",""].
+function tipParts(str){ if(typeof str!=="string"){ return ["",""]; } const i=str.indexOf(":"); if(i<0) return ["",""]; return [ str.slice(0,i).replace(/[^0-9]/g,"").slice(0,2), str.slice(i+1).replace(/[^0-9]/g,"").slice(0,2) ]; }
 const effTip=str=> parseTip(str) || [0,0];   // nicht getippte Spiele zählen als 0:0
 function pointsFor(tipStr, resArr){
   if(!resArr) return null;                    // Ergebnis noch nicht da
@@ -499,7 +533,7 @@ const LS=(k,v)=>{ try{ if(v===undefined) return localStorage.getItem(k); localSt
 let MODE="local";            // 'fire' | 'local'
 let ROOM=null, ADMIN=false, ADMINTOKEN=null;
 let MYPID = LS("wmt_pid"); if(!MYPID){ MYPID="p"+Math.random().toString(36).slice(2,10); LS("wmt_pid",MYPID); }
-let me = { name: LS("wmt_name")||"", tips:{}, gif: LS("wmt_gif")||"" };
+let me = { name: LS("wmt_name")||"", tips: loadTipsLS(), gif: LS("wmt_gif")||"" };
 let players = {};            // pid -> {name,tips}
 let roomState = { locked:false };
 let results = {};            // fixtureId -> [h,g]
@@ -551,7 +585,7 @@ function attachListeners(){
     // Eigene Tipps nur EINMAL vom Server uebernehmen (Rejoin/Reload) – danach ist das lokale Geraet
     // alleiniger Autor der eigenen Tipps. Verhindert, dass ein Listener-Event waehrend des Tippens
     // gerade eingegebene Werte mit (evtl. veralteten) Server-Daten ueberschreibt.
-    if(!hydrated && players[MYPID] && players[MYPID].tips) me.tips=players[MYPID].tips;
+    if(!hydrated && players[MYPID] && players[MYPID].tips){ me.tips=Object.assign({}, me.tips, players[MYPID].tips); saveTipsLS(); }
     hydrated=true; renderAll(); });
   rref("state").on("value", s=>{ roomState=s.val()||{locked:false};
     // Admin-Rolle gegen den echten Token verifizieren: passt der Token -> Admin, sonst KEIN Admin
@@ -591,11 +625,15 @@ async function claimNick(name, pass){
   players[MYPID]={...(players[MYPID]||{}), name, tips:me.tips};   // merge: behält gif/susp; sonst „Phantom-Join"
   return {ok:true};
 }
+// Lokaler Sicherungs-Cache der eigenen Tipps (auch Teil-Tipps) – damit ein Zwischenstand nie verloren geht.
+function loadTipsLS(){ try{ return JSON.parse(LS("wmt_tips")||"{}")||{}; }catch(e){ return {}; } }
+function saveTipsLS(){ try{ LS("wmt_tips", JSON.stringify(me.tips)); }catch(e){} }
 function pushTip(id, val){
   if(players[MYPID] && players[MYPID].removed) return;   // entfernte/gesperrte Spieler tippen nicht
   me.tips[id]=val;
   if(MODE==="fire"){ rref("players/"+MYPID+"/tips/"+id).set(val); }
   else { players[MYPID]={...(players[MYPID]||{}), name:me.name, tips:me.tips}; }
+  saveTipsLS();   // immer auch lokal sichern
 }
 // Eigene GIF-Auswahl lesen/schreiben. Quelle der Wahrheit: players/<pid>/gif (fire) bzw. me.gif (Vorschau).
 function myGif(){ return gifValid((MODE==="fire")? (players[MYPID]&&players[MYPID].gif) : me.gif); }
@@ -734,11 +772,11 @@ function renderTippen(){
   if(!box.dataset.built){ buildGroups(box); box.dataset.built="1"; }
   let got=0;
   for(const f of FIXTURES){
-    const tip=me.tips[f.id]; const t=parseTip(tip);
+    const tip=me.tips[f.id]; const t=parseTip(tip); const [ph,pg]=tipParts(tip);
     const ih=$("#tip-"+f.id+"-h"), ig=$("#tip-"+f.id+"-g");
     const locked=isLocked(f);
-    if(ih){ if(document.activeElement!==ih) ih.value=t?t[0]:""; ih.disabled=locked; }
-    if(ig){ if(document.activeElement!==ig) ig.value=t?t[1]:""; ig.disabled=locked; }
+    if(ih){ if(document.activeElement!==ih) ih.value=ph; ih.disabled=locked; }
+    if(ig){ if(document.activeElement!==ig) ig.value=pg; ig.disabled=locked; }
     if(t) got++;
     const badge=$("#badge-"+f.id), resEl=$("#res-"+f.id), matchEl=$("#m-"+f.id);
     const r=results[f.id];
@@ -786,7 +824,7 @@ function buildGroups(box){
       m.innerHTML=`<div class="match-top"><span class="match-meta">Spieltag ${f.st}</span><span class="pill open" id="badge-${f.id}">offen</span></div>
         <div class="match-grid">
           <div class="team"><span class="flag">${flag(f.heim)}</span><span class="nm">${esc(nameDE(f.heim))}</span></div>
-          <div class="score"><input type="number" min="0" max="99" inputmode="numeric" id="tip-${f.id}-h" data-id="${f.id}" data-s="h"><span class="colon">:</span><input type="number" min="0" max="99" inputmode="numeric" id="tip-${f.id}-g" data-id="${f.id}" data-s="g"></div>
+          <div class="score"><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" id="tip-${f.id}-h" data-id="${f.id}" data-s="h"><span class="colon">:</span><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" id="tip-${f.id}-g" data-id="${f.id}" data-s="g"></div>
           <div class="team gast"><span class="nm">${esc(nameDE(f.gast))}</span><span class="flag">${flag(f.gast)}</span></div>
         </div><div class="res" id="res-${f.id}"></div>`;
       body.appendChild(m);
@@ -802,18 +840,19 @@ function buildGroups(box){
 // Tipp speichern + auf BEIDE Eingabe-Sätze spiegeln (Gruppen-Liste „tip-…" und Als-Nächstes-Karte „nx-…").
 function commitTip(id, hv, gv){
   if(MODE==="fire" && players[MYPID] && players[MYPID].removed) return;   // entfernte Spieler tippen nicht
-  if(hv!==""&&gv!==""){ pushTip(id, hv+":"+gv); }
-  else if(hv===""&&gv===""){ if(MODE==="fire") rref("players/"+MYPID+"/tips/"+id).remove(); delete me.tips[id]; }
-  mirrorTip(id); updateProgress();
+  if(hv===""&&gv===""){ delete me.tips[id]; if(MODE==="fire") rref("players/"+MYPID+"/tips/"+id).remove(); else if(players[MYPID]) players[MYPID].tips=me.tips; saveTipsLS(); }
+  else { pushTip(id, hv+":"+gv); }   // speichert auch Teil-Tipps ("2:" / ":1") – Zwischenstand geht nie verloren
+  mirrorTip(id); updateProgress(); flashSaved();
 }
 function mirrorTip(id){
-  const t=parseTip(me.tips[id]);
+  const [ph,pg]=tipParts(me.tips[id]);
   [["tip-"+id+"-h","tip-"+id+"-g"],["nx-"+id+"-h","nx-"+id+"-g"]].forEach(([hi,gi])=>{
     const ih=document.getElementById(hi), ig=document.getElementById(gi);
-    if(ih && document.activeElement!==ih) ih.value=t?t[0]:"";
-    if(ig && document.activeElement!==ig) ig.value=t?t[1]:"";
+    if(ih && document.activeElement!==ih) ih.value=ph;
+    if(ig && document.activeElement!==ig) ig.value=pg;
   });
 }
+let savedT; function flashSaved(){ const e=document.getElementById("tipSaved"); if(!e) return; e.classList.add("show"); clearTimeout(savedT); savedT=setTimeout(()=>e.classList.remove("show"),1100); }
 function updateProgress(){
   const got=FIXTURES.filter(f=>parseTip(me.tips[f.id])).length;
   const tc=$("#tipCount"); if(tc) tc.textContent=got+" / 72 getippt";
@@ -834,7 +873,7 @@ function renderNext(){
       <div class="nx-when" id="nxwhen-${f.id}"></div>
       <div class="nx-teams">
         <span class="nx-tm"><span class="flag">${flag(f.heim)}</span><span class="nm">${esc(nameDE(f.heim))}</span></span>
-        <span class="nx-sc"><input type="number" min="0" max="99" inputmode="numeric" id="nx-${f.id}-h" data-nx="${f.id}"><span class="c">:</span><input type="number" min="0" max="99" inputmode="numeric" id="nx-${f.id}-g" data-nx="${f.id}"></span>
+        <span class="nx-sc"><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" id="nx-${f.id}-h" data-nx="${f.id}"><span class="c">:</span><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" id="nx-${f.id}-g" data-nx="${f.id}"></span>
         <span class="nx-tm gast"><span class="nm">${esc(nameDE(f.gast))}</span><span class="flag">${flag(f.gast)}</span></span>
       </div></div>`).join("");
     list.querySelectorAll("input[data-nx]").forEach(inp=>inp.addEventListener("input",e=>{
@@ -845,10 +884,10 @@ function renderNext(){
     list.dataset.sig=sig;
   }
   up.forEach(f=>{   // Werte + Countdown immer aktualisieren (fokussiertes Feld nicht stören)
-    const t=parseTip(me.tips[f.id]);
+    const [ph,pg]=tipParts(me.tips[f.id]);
     const ih=document.getElementById("nx-"+f.id+"-h"), ig=document.getElementById("nx-"+f.id+"-g");
-    if(ih && document.activeElement!==ih) ih.value=t?t[0]:"";
-    if(ig && document.activeElement!==ig) ig.value=t?t[1]:"";
+    if(ih && document.activeElement!==ih) ih.value=ph;
+    if(ig && document.activeElement!==ig) ig.value=pg;
     const w=document.getElementById("nxwhen-"+f.id);
     if(w) w.innerHTML=esc(fmtKick(fixMeta[f.id]))+' · <b>'+esc(untilStr(kickoffTime(f)))+'</b>';
   });
@@ -1144,6 +1183,15 @@ $("#changeNick").addEventListener("click",()=>{ $("#joinCard").classList.remove(
   head.addEventListener("click",toggle);
   head.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); toggle(); } });
 })();
+// Start-Regeln: Bestätigung ist Pflicht, sonst kein Zugang. Pro Gerät gemerkt (LS) + Versionsabgleich.
+function showRulesGate(){ const g=$("#rulesGate"); if(!g) return;
+  if(LS("wmt_rules_ok")===RULES_VERSION){ g.classList.add("hidden"); document.body.style.overflow=""; }
+  else { g.classList.remove("hidden"); document.body.style.overflow="hidden"; }
+}
+(function(){ const cb=$("#rulesAgree"), btn=$("#rulesBtn"); if(!cb||!btn) return;
+  cb.addEventListener("change",()=>{ btn.disabled=!cb.checked; });
+  btn.addEventListener("click",()=>{ if(!cb.checked) return; LS("wmt_rules_ok",RULES_VERSION); $("#rulesGate").classList.add("hidden"); document.body.style.overflow=""; });
+})();
 $("#lockToggle").addEventListener("change",e=>setLock(e.target.checked));
 $("#savePass").addEventListener("click",()=>{
   const v=$("#classPassIn").value.trim();
@@ -1156,6 +1204,7 @@ $("#copyAdmin").addEventListener("click",async()=>toast(await copyText($("#admin
 
 /* ================= START ================= */
 (async function start(){
+  showRulesGate();   // Regeln-Bestätigung zuerst (blockiert die Seite bis akzeptiert)
   // Admin? token in URL ODER lokal gemerkt
   if(ADMINTOKEN) ADMIN=true;
   initFirebase();
