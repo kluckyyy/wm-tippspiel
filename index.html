@@ -97,6 +97,48 @@
   .rank-pts{font-family:var(--font-display); font-weight:400; font-size:31px; color:var(--green); text-align:right; line-height:.9}
   .rank-pts small{display:block; font-family:var(--font-body); font-size:9.5px; color:var(--ink-soft); font-weight:800; text-transform:uppercase; letter-spacing:.1em}
 
+  /* Jubel-GIFs & Fails (Top-10-Belohnung) – kuratierte, selbst-animierte Sticker (kindgerecht, offline, keine Fremd-Links).
+     Klassen sind nach BEWEGUNG benannt (nicht pro Sticker), damit viele Emojis dieselbe Animation teilen. */
+  .rank-gif{flex:none; width:30px; text-align:center}
+  .gifst{display:inline-block; font-size:23px; line-height:1; transform-origin:center bottom}
+  @keyframes g-bounce{0%,100%{transform:translateY(0)} 30%{transform:translateY(-9px)} 55%{transform:translateY(0)} 72%{transform:translateY(-4px)}}
+  .gifst-bounce{animation:g-bounce .95s infinite}
+  @keyframes g-spin{to{transform:rotate(360deg)}}
+  .gifst-spin{animation:g-spin 1.1s linear infinite}
+  @keyframes g-rocket{0%{transform:translateY(3px) rotate(-12deg)} 50%{transform:translateY(-4px) rotate(-16deg)} 100%{transform:translateY(3px) rotate(-12deg)}}
+  .gifst-rocket{animation:g-rocket .7s ease-in-out infinite}
+  @keyframes g-fire{0%,100%{transform:scale(1) rotate(-3deg)} 50%{transform:scale(1.18) rotate(3deg)}}
+  .gifst-fire{animation:g-fire .5s ease-in-out infinite}
+  @keyframes g-shine{0%,100%{transform:scale(1) rotate(-4deg); filter:none} 50%{transform:scale(1.12) rotate(4deg); filter:drop-shadow(0 0 4px var(--gold))}}
+  .gifst-shine{animation:g-shine 1.3s ease-in-out infinite}
+  @keyframes g-wobble{0%,100%{transform:rotate(-9deg)} 50%{transform:rotate(9deg)}}
+  .gifst-wobble{animation:g-wobble 1s ease-in-out infinite}
+  @keyframes g-twinkle{0%,100%{transform:scale(.82); opacity:.65} 50%{transform:scale(1.16); opacity:1}}
+  .gifst-twinkle{animation:g-twinkle .85s ease-in-out infinite}
+  @keyframes g-pop{0%{transform:scale(1) rotate(0)} 25%{transform:scale(1.25) rotate(-10deg)} 55%{transform:scale(1) rotate(10deg)} 80%{transform:scale(1.14) rotate(-6deg)} 100%{transform:scale(1) rotate(0)}}
+  .gifst-pop{animation:g-pop 1s ease-in-out infinite}
+  @keyframes g-pulse{0%,100%{transform:scale(1)} 50%{transform:scale(1.22)}}
+  .gifst-pulse{animation:g-pulse .6s ease-in-out infinite}
+  @keyframes g-flash{0%,100%{opacity:1; transform:scale(1) rotate(0)} 42%{opacity:.35; transform:scale(1)} 50%{opacity:1; transform:scale(1.22) rotate(-7deg)}}
+  .gifst-flash{animation:g-flash .75s ease-in-out infinite}
+  @keyframes g-swing{0%,100%{transform:rotate(-15deg)} 50%{transform:rotate(15deg)}}
+  .gifst-swing{animation:g-swing 1.1s ease-in-out infinite; transform-origin:top center}
+  @keyframes g-slow{0%,100%{transform:translateY(0) rotate(-3deg)} 50%{transform:translateY(-3px) rotate(3deg)}}
+  .gifst-slow{animation:g-slow 1.9s ease-in-out infinite}
+  @keyframes g-shake{0%,100%{transform:translateX(0) rotate(0)} 20%{transform:translateX(-3px) rotate(-7deg)} 40%{transform:translateX(3px) rotate(7deg)} 60%{transform:translateX(-2px) rotate(-4deg)} 80%{transform:translateX(2px) rotate(4deg)}}
+  .gifst-shake{animation:g-shake .55s ease-in-out infinite}
+  .gifst-goal{position:relative; display:inline-block}
+  .gifst-goal::after{content:"⚽"; position:absolute; left:-15px; top:1px; font-size:13px; animation:g-shot 1.3s ease-in infinite}
+  @keyframes g-shot{0%{left:-16px; opacity:0; transform:scale(.55)} 35%{opacity:1} 70%{left:5px; transform:scale(1)} 100%{left:5px; opacity:0}}
+
+  .gifcat{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft); margin:14px 0 2px} .gifcat:first-child{margin-top:4px}
+  .gifpick{display:grid; grid-template-columns:repeat(auto-fill,minmax(54px,1fr)); gap:10px; margin-top:6px}
+  .gifopt{display:grid; place-items:center; height:54px; background:var(--paper); border:2.5px solid var(--ink); border-radius:12px; cursor:pointer; box-shadow:3px 3px 0 var(--ink); transition:transform .08s, box-shadow .08s}
+  .gifopt:active{transform:translate(3px,3px); box-shadow:0 0 0 var(--ink)}
+  .gifopt.sel{background:var(--yellow); box-shadow:3px 3px 0 var(--vermilion)}
+  .gifopt .gifst{font-size:26px}
+  .gifopt .none{font-weight:800; font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em}
+
   .empty{text-align:center; color:var(--ink-soft); padding:30px 12px; font-size:14px; font-weight:600} .empty .big{font-size:48px; display:block; margin-bottom:10px}
   .mini{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft)}
   .tiny{font-size:11px; color:var(--ink-soft); font-weight:500}
@@ -196,6 +238,14 @@
       <div class="board-hd">🏆 Highscore</div>
       <div class="board-sub" id="boardSub">—</div>
       <div id="rankList"></div>
+    </div>
+    <div class="card hidden" id="gifCard">
+      <h2>🎉 Dein Jubel-GIF</h2>
+      <p class="hint">Du bist in den <b>Top 10</b> – such dir ein Jubel-GIF oder einen lustigen Fail aus! Es erscheint <b>neben deinem Namen</b> in der Rangliste. Antippen zum Wählen, nochmal auf „keins" zum Entfernen.</p>
+      <div id="gifPicker"></div>
+    </div>
+    <div class="card hidden" id="gifLockCard" style="background:var(--paper-deep)">
+      <p class="hint" style="margin:0">🔝 <b>Schaff es unter die Top 10</b>, dann darfst du dir hier ein lustiges Jubel-GIF aussuchen, das neben deinem Namen wackelt!</p>
     </div>
   </section>
 
@@ -389,12 +439,24 @@ function totalFor(tips, results, susp, koTime){
   return {sum,exakt,getippt,gewertet,gesperrt};
 }
 
+/* ================= DATENMODELL — additiv & rückwärtskompatibel =================
+   WICHTIG für spätere Änderungen (Stefan baut evtl. Features nach):
+   Live-Daten liegen in Firebase unter rooms/<ROOM>/… . Ein neues Deploy von index.html
+   setzt NICHTS zurück – Räume, Spitznamen, Tipps, Sperren (susp) und GIF-Auswahl bleiben.
+   Damit das so bleibt, gelten 3 Regeln:
+     1) Neue Felder NUR additiv ergänzen, nie als Pflichtfeld – und IMMER mit Default lesen
+        (z.B. p.gif||"", p.susp||[], roomState.locked). Alte Datensätze ohne das Feld laufen weiter.
+     2) Schreibzugriffe IMMER partiell: rref(path).update({…}) oder Leaf-.set() auf EIN Feld.
+        NIE .set() auf players/<pid> oder state als Ganzes – das würde fremde Felder löschen.
+     3) Unbekannte/zukünftige Werte tolerant ignorieren (gifValid() filtert fremde GIF-IDs weg).
+   So lassen sich jederzeit Features nachrüsten, ohne dass bestehende Daten verloren gehen.
+============================================================================= */
 /* ================= STATE ================= */
 const LS=(k,v)=>{ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v); }catch(e){ return null; } };
 let MODE="local";            // 'fire' | 'local'
 let ROOM=null, ADMIN=false, ADMINTOKEN=null;
 let MYPID = LS("wmt_pid"); if(!MYPID){ MYPID="p"+Math.random().toString(36).slice(2,10); LS("wmt_pid",MYPID); }
-let me = { name: LS("wmt_name")||"", tips:{} };
+let me = { name: LS("wmt_name")||"", tips:{}, gif: LS("wmt_gif")||"" };
 let players = {};            // pid -> {name,tips}
 let roomState = { locked:false };
 let results = {};            // fixtureId -> [h,g]
@@ -465,7 +527,7 @@ function checkPass(roomPass, entered){ return !roomPass ? true : (String(entered
 
 async function claimNick(name, pass){
   const lower=name.trim().toLowerCase();
-  if(MODE!=="fire"){ me.name=name; LS("wmt_name",name); players[MYPID]={name,tips:me.tips}; return {ok:true}; }
+  if(MODE!=="fire"){ me.name=name; LS("wmt_name",name); players[MYPID]={...(players[MYPID]||{}), name, tips:me.tips}; return {ok:true}; }
   // Klassen-Passwort (falls gesetzt)?
   const roomPass=(await rref("state/pass").get()).val();
   if(roomPass && !checkPass(roomPass, pass)) return {ok:false, needPass:true, msg:"Falsches Klassen-Passwort. Frag deine Lehrkraft."};
@@ -483,14 +545,23 @@ async function claimNick(name, pass){
   if(oldName && oldName.toLowerCase()!==lower){ try{ await rref("nicks/"+nickKey(oldName.toLowerCase())).remove(); }catch(e){} }
   await rref("players/"+MYPID).update({ name, ts:firebase.database.ServerValue.TIMESTAMP });   // erst Server-Write...
   me.name=name; LS("wmt_name",name);                                                           // ...dann lokaler State,
-  players[MYPID]={name, tips:me.tips};   // sonst „Phantom-Join": joined=true obwohl der Server-Write scheiterte
+  players[MYPID]={...(players[MYPID]||{}), name, tips:me.tips};   // merge: behält gif/susp; sonst „Phantom-Join"
   return {ok:true};
 }
 function pushTip(id, val){
   if(players[MYPID] && players[MYPID].removed) return;   // entfernte/gesperrte Spieler tippen nicht
   me.tips[id]=val;
   if(MODE==="fire"){ rref("players/"+MYPID+"/tips/"+id).set(val); }
-  else { players[MYPID]={name:me.name,tips:me.tips}; }
+  else { players[MYPID]={...(players[MYPID]||{}), name:me.name, tips:me.tips}; }
+}
+// Eigene GIF-Auswahl lesen/schreiben. Quelle der Wahrheit: players/<pid>/gif (fire) bzw. me.gif (Vorschau).
+function myGif(){ return gifValid((MODE==="fire")? (players[MYPID]&&players[MYPID].gif) : me.gif); }
+function setMyGif(id){
+  id=gifValid(id);                                  // nur bekannte IDs, sonst "" (= keins)
+  me.gif=id; LS("wmt_gif", id);
+  if(MODE==="fire"){ rref("players/"+MYPID+"/gif").set(id||null); }   // Leaf-Write: additiv, löscht nichts anderes
+  else { players[MYPID]={...(players[MYPID]||{name:me.name,tips:me.tips}), gif:id}; }
+  renderBoard();
 }
 function setLock(v){ if(MODE==="fire") rref("state/locked").set(!!v); else { roomState.locked=v; renderAll(); } }
 function setClassPass(v){ const val=(v||"").trim(); if(MODE==="fire") rref("state/pass").set(val||null); else { roomState.pass=val||null; renderAll(); } }
@@ -668,11 +739,51 @@ function buildGroups(box){
 }
 function ptClass(p){ return p===PUNKTE.exakt?"pt4":p===PUNKTE.diff?"pt3":p===PUNKTE.tendenz?"pt2":"pt0"; }
 
+/* ================= JUBEL-GIFS & FAILS (Top-10) =================
+   Kuratierte, selbst-animierte Sticker – kindgerecht (5. Klasse), offline, keine Fremd-Inhalte.
+   Felder: id (stabil, in Firebase gespeichert) · emoji · label · cat ('jubel'|'fail') · anim (CSS-Bewegung). */
+const GIFS = [
+  // 🎉 Jubel
+  { id:"ball",      emoji:"⚽",  label:"Hüpfender Ball",  cat:"jubel", anim:"bounce" },
+  { id:"spin",      emoji:"⚽",  label:"Ballzauber",      cat:"jubel", anim:"spin" },
+  { id:"goal",      emoji:"🥅",  label:"Tooor!",          cat:"jubel", anim:"goal" },
+  { id:"rocket",    emoji:"🚀",  label:"Höhenflug",       cat:"jubel", anim:"rocket" },
+  { id:"fire",      emoji:"🔥",  label:"In Topform",      cat:"jubel", anim:"fire" },
+  { id:"trophy",    emoji:"🏆",  label:"Pokal",           cat:"jubel", anim:"shine" },
+  { id:"crown",     emoji:"👑",  label:"Spitzenreiter",   cat:"jubel", anim:"wobble" },
+  { id:"medal",     emoji:"🏅",  label:"Medaille",        cat:"jubel", anim:"swing" },
+  { id:"star",      emoji:"🌟",  label:"Sternstunde",     cat:"jubel", anim:"twinkle" },
+  { id:"party",     emoji:"🎉",  label:"Party",           cat:"jubel", anim:"pop" },
+  { id:"confetti",  emoji:"🎊",  label:"Konfetti",        cat:"jubel", anim:"pop" },
+  { id:"flex",      emoji:"💪",  label:"Stark!",          cat:"jubel", anim:"pulse" },
+  { id:"lightning", emoji:"⚡",  label:"Blitzschnell",    cat:"jubel", anim:"flash" },
+  { id:"hundred",   emoji:"💯",  label:"Volle Punktzahl", cat:"jubel", anim:"pulse" },
+  { id:"dance",     emoji:"🕺",  label:"Torjubel-Tanz",   cat:"jubel", anim:"wobble" },
+  { id:"goat",      emoji:"🐐",  label:"Der GOAT",        cat:"jubel", anim:"bounce" },
+  // 😅 Fails (harmlos & lustig)
+  { id:"slip",      emoji:"🍌",  label:"Bananenschale",   cat:"fail",  anim:"spin" },
+  { id:"oops",      emoji:"🙈",  label:"Hoppla!",         cat:"fail",  anim:"shake" },
+  { id:"dizzy",     emoji:"😵‍💫", label:"Ganz schwindelig", cat:"fail",  anim:"spin" },
+  { id:"snail",     emoji:"🐌",  label:"Schneckentempo",  cat:"fail",  anim:"slow" },
+  { id:"turtle",    emoji:"🐢",  label:"Zu langsam",      cat:"fail",  anim:"slow" },
+  { id:"sleep",     emoji:"😴",  label:"Eingepennt",      cat:"fail",  anim:"slow" },
+  { id:"clown",     emoji:"🤡",  label:"Clown-Aktion",    cat:"fail",  anim:"wobble" },
+  { id:"facepalm",  emoji:"🤦",  label:"Oh nein…",        cat:"fail",  anim:"shake" },
+  { id:"dog",       emoji:"🐕",  label:"Hund auf'm Platz",cat:"fail",  anim:"bounce" },
+  { id:"pigeon",    emoji:"🐦",  label:"Taube am Ball",   cat:"fail",  anim:"bounce" }
+];
+const GIFBYID = {}; GIFS.forEach(g=>GIFBYID[g.id]=g);
+const TOP_GIF = 10;   // ab welcher Rang-Grenze ein GIF wählbar/sichtbar ist
+// Nur bekannte IDs zulassen – fremde/zukünftige Werte tolerant verwerfen (Vorwärts-Kompatibilität).
+function gifValid(id){ return (id && GIFBYID[id]) ? id : ""; }
+// Animierter Sticker als HTML (oder "" wenn unbekannt). Klasse nach Bewegung, damit Sticker Animationen teilen.
+function gifSticker(id){ const g=GIFBYID[gifValid(id)]; if(!g) return ""; return '<span class="gifst gifst-'+g.anim+'" role="img" aria-label="'+esc(g.label)+'" title="'+esc(g.label)+'">'+g.emoji+'</span>'; }
+
 function rankedPlayers(){
   const arr=[];
   const src = (MODE==="fire")? players : (me.name? {[MYPID]:{name:me.name,tips:me.tips}} : {});
   for(const pid in src){ const p=src[pid]; if(!p||!p.name||p.removed) continue;   // entfernte Spieler nicht werten/zeigen
-    arr.push({pid, name:p.name, ...totalFor(p.tips||{}, results, p.susp||[], kickoffTime), me:pid===MYPID}); }
+    arr.push({pid, name:p.name, gif:gifValid(p.gif), ...totalFor(p.tips||{}, results, p.susp||[], kickoffTime), me:pid===MYPID}); }
   arr.sort((a,b)=> b.sum-a.sum||b.exakt-a.exakt||a.name.localeCompare(b.name));
   return arr;
 }
@@ -680,17 +791,47 @@ function renderBoard(){
   const done=Object.keys(results).length;
   $("#boardSub").textContent = (MODE==="fire"?Object.keys(players).length:(me.name?1:0))+" Mitspieler · "+done+" von 72 Spielen gewertet";
   const arr=rankedPlayers(), box=$("#rankList"); box.innerHTML="";
-  if(!arr.length){ box.innerHTML='<div class="empty"><span class="big">🏆</span>Noch keine Tipps da.<br>Schüler scannen den QR-Code und tippen los!</div>'; return; }
-  let pos=0,ls=null,le=null;
-  arr.forEach((r,i)=>{
-    if(r.sum!==ls||r.exakt!==le){pos=i+1;ls=r.sum;le=r.exakt;}
-    const medal=pos===1?"🥇":pos===2?"🥈":pos===3?"🥉":pos;
-    const row=document.createElement("div"); row.className="rank-row rank-"+pos+(r.me?" me":"");
-    row.innerHTML=`<div class="rank-pos">${medal}</div>
-      <div class="rank-name">${esc(r.name)}${r.me?' <span class="pill">du</span>':''}<div class="sub">${r.exakt} exakt · ${r.getippt}/72 getippt</div></div>
-      <div class="rank-pts">${r.sum}<small>Punkte</small></div>`;
-    box.appendChild(row);
+  let myPos=null;
+  if(!arr.length){ box.innerHTML='<div class="empty"><span class="big">🏆</span>Noch keine Tipps da.<br>Schüler scannen den QR-Code und tippen los!</div>'; }
+  else {
+    let pos=0,ls=null,le=null;
+    arr.forEach((r,i)=>{
+      if(r.sum!==ls||r.exakt!==le){pos=i+1;ls=r.sum;le=r.exakt;}
+      if(r.me) myPos=pos;
+      const medal=pos===1?"🥇":pos===2?"🥈":pos===3?"🥉":pos;
+      const gifHtml=(pos<=TOP_GIF && r.gif)?`<div class="rank-gif">${gifSticker(r.gif)}</div>`:"";
+      const row=document.createElement("div"); row.className="rank-row rank-"+pos+(r.me?" me":"");
+      row.innerHTML=`<div class="rank-pos">${medal}</div>${gifHtml}
+        <div class="rank-name">${esc(r.name)}${r.me?' <span class="pill">du</span>':''}<div class="sub">${r.exakt} exakt · ${r.getippt}/72 getippt</div></div>
+        <div class="rank-pts">${r.sum}<small>Punkte</small></div>`;
+      box.appendChild(row);
+    });
+  }
+  // Jubel-GIF-Picker: nur für mitspielende, nicht-entfernte Personen; freigeschaltet ab Top 10.
+  const amPlayer = !!(me.name && me.name.trim()) && !(MODE==="fire" && players[MYPID] && players[MYPID].removed);
+  const canPick = amPlayer && myPos!=null && myPos<=TOP_GIF;
+  const gc=$("#gifCard"), gl=$("#gifLockCard");
+  if(gc) gc.classList.toggle("hidden", !canPick);
+  if(gl) gl.classList.toggle("hidden", !(amPlayer && !canPick));
+  if(canPick) renderGifPicker();
+}
+function renderGifPicker(){
+  const box=$("#gifPicker"); if(!box) return;
+  const cur=myGif();
+  const opt=(id,inner,extra)=>`<div class="gifopt${(cur===id)?" sel":""}" data-gif="${id}"${extra||""}>${inner}</div>`;
+  let html=`<div class="gifpick">${opt("",'<span class="none">keins</span>')}</div>`;
+  ["jubel","fail"].forEach(cat=>{
+    const items=GIFS.filter(g=>g.cat===cat);
+    if(!items.length) return;
+    html+=`<div class="gifcat">${cat==="jubel"?"🎉 Jubel":"😅 Fails (harmlos)"}</div><div class="gifpick">`;
+    items.forEach(g=>{ html+=opt(g.id, gifSticker(g.id), ` title="${esc(g.label)}"`); });
+    html+="</div>";
   });
+  box.innerHTML=html;
+  box.querySelectorAll(".gifopt").forEach(o=>o.addEventListener("click",()=>{
+    const id=o.dataset.gif; setMyGif(id);
+    toast(id?("Gewählt: "+(GIFBYID[id]?GIFBYID[id].label:"GIF")+" "+(GIFBYID[id]?GIFBYID[id].emoji:"")):"GIF entfernt");
+  }));
 }
 function renderAdmin(){
   if(!ADMIN) return;
