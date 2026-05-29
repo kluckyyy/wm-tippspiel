@@ -896,7 +896,7 @@ const TOP_GIF = 10;   // ab welcher Rang-Grenze ein GIF wählbar/sichtbar ist
 // Cartoon-Clips: sobald ein optimierter Clip cartoon-clips/web/<id>.mp4 im Repo liegt, hier die ID eintragen –
 // dann zeigt der Sticker den Loop-Clip statt des Emojis. Leer = überall Emoji (additiv, nichts geht kaputt).
 const CLIPS_BASE = "cartoon-clips/web/";
-const CLIP_IDS = new Set([]);
+const CLIP_IDS = new Set(["trophy"]);
 // Nur bekannte IDs zulassen – fremde/zukünftige Werte tolerant verwerfen (Vorwärts-Kompatibilität).
 function gifValid(id){ return (id && GIFBYID[id]) ? id : ""; }
 // Sticker als HTML: Cartoon-Clip wenn vorhanden, sonst animiertes Emoji (Fallback). "" wenn ID unbekannt.
