@@ -608,21 +608,44 @@ async function claimNick(name, pass){
   // Klassen-Passwort (falls gesetzt)?
   const roomPass=(await rref("state/pass").get()).val();
   if(roomPass && !checkPass(roomPass, pass)) return {ok:false, needPass:true, msg:"Falsches Klassen-Passwort. Frag deine Lehrkraft."};
-  // Sperre?
+  // Sperre + bisheriger eigener Eintrag
   const locked=(await rref("state/locked").get()).val();
   const already=(await rref("players/"+MYPID).get()).val();
   if(already && already.removed) return {ok:false, msg:"Du wurdest von der Lehrkraft entfernt. Sprich sie an, falls das ein Versehen war."};
-  if(locked && !already) return {ok:false, msg:"Die Anmeldung ist geschlossen. Frag deine Lehrkraft."};
-  // Transaktion auf nick
+  // Transaktion auf nick (zuerst – damit Wiederherstellung auch bei gesperrter Anmeldung erkannt wird)
   const nref=rref("nicks/"+nickKey(lower));
   const tx=await nref.transaction(cur=> (cur===null||cur===MYPID)?MYPID:undefined );
-  if(!tx.committed || tx.snapshot.val()!==MYPID) return {ok:false, msg:"Spitzname „"+esc(name)+"\" ist schon vergeben. Nimm einen anderen."};
+  if(!tx.committed || tx.snapshot.val()!==MYPID){
+    const takenBy=tx.snapshot.val();   // Name gehört einem anderen (früheren) Gerät
+    if(takenBy && takenBy!==MYPID){
+      const op=(await rref("players/"+takenBy).get()).val();
+      if(op && op.removed) return {ok:false, msg:"Du wurdest von der Lehrkraft entfernt. Sprich sie an, falls das ein Versehen war."};
+      // Passwort (falls gesetzt) wurde oben bereits geprüft -> Wiederherstellung anbieten (auch bei gesperrter Anmeldung – kein neuer Spieler)
+      if(op && op.name) return {ok:false, recover:true, oldPid:takenBy, msg:"„"+esc(op.name)+"\" gibt es schon. Bist du das von früher / einem anderen Gerät?"};
+    }
+    return {ok:false, msg:"Spitzname „"+esc(name)+"\" ist schon vergeben. Nimm einen anderen."};
+  }
+  // Wir halten den Namen jetzt. NEUER Spieler bei GESPERRTER Anmeldung? -> ablehnen + gerade belegten Namen wieder freigeben.
+  if(locked && !already){ try{ await nref.remove(); }catch(e){} return {ok:false, msg:"Die Anmeldung ist geschlossen. Frag deine Lehrkraft."}; }
   // alten Namen freigeben
   const oldName=LS("wmt_name");
   if(oldName && oldName.toLowerCase()!==lower){ try{ await rref("nicks/"+nickKey(oldName.toLowerCase())).remove(); }catch(e){} }
   await rref("players/"+MYPID).update({ name, ts:firebase.database.ServerValue.TIMESTAMP });   // erst Server-Write...
   me.name=name; LS("wmt_name",name);                                                           // ...dann lokaler State,
   players[MYPID]={...(players[MYPID]||{}), name, tips:me.tips};   // merge: behält gif/susp; sonst „Phantom-Join"
+  return {ok:true};
+}
+// Spitzname-Wiederherstellung: dieses Gerät übernimmt die frühere Identität (oldPid) und holt deren Tipps/GIF/Rang zurück.
+async function recoverPlayer(oldPid){
+  if(MODE!=="fire") return {ok:false, msg:"Geht nur online."};
+  const op=(await rref("players/"+oldPid).get()).val();
+  if(!op || !op.name) return {ok:false, msg:"Diesen Spieler gibt es nicht mehr."};
+  if(op.removed) return {ok:false, msg:"Du wurdest von der Lehrkraft entfernt. Sprich sie an."};
+  MYPID=oldPid; LS("wmt_pid", oldPid);                 // alte Identität übernehmen
+  me.name=op.name; LS("wmt_name", op.name);
+  me.tips=Object.assign({}, op.tips||{}); saveTipsLS();
+  me.gif=gifValid(op.gif); LS("wmt_gif", me.gif);
+  hydrated=true;
   return {ok:true};
 }
 // Lokaler Sicherungs-Cache der eigenen Tipps (auch Teil-Tipps) – damit ein Zwischenstand nie verloren geht.
@@ -1165,7 +1188,23 @@ $("#joinBtn").addEventListener("click",async()=>{
   try{
     const r=await claimNick(name, $("#passIn").value);
     if(!r.ok){
-      const wb=$("#nickWarn"); wb.innerHTML=r.msg; wb.classList.add("show","bad");
+      const wb=$("#nickWarn"); wb.classList.add("show");
+      if(r.recover){   // Name existiert schon -> Wiederherstellung anbieten (Tipps zurückholen)
+        wb.classList.remove("bad");
+        wb.innerHTML=r.msg+'<div style="margin-top:10px"><button class="btn sm" id="recoverBtn" type="button">Ja, das bin ich – Tipps zurückholen</button></div>'
+          +'<div class="tiny" style="margin-top:8px">Nur klicken, wenn das wirklich <b>dein eigener</b> Spitzname von vorher ist.</div>';
+        const rb=document.getElementById("recoverBtn");
+        if(rb) rb.addEventListener("click",async()=>{
+          rb.disabled=true; rb.textContent="Hole zurück…";
+          try{
+            const rr=await recoverPlayer(r.oldPid);
+            if(rr.ok){ wb.classList.remove("show","bad"); refreshTabs(); renderAll(); toast("Willkommen zurück, "+me.name+"! 🎉"); }
+            else { wb.classList.add("bad"); wb.innerHTML=rr.msg||"Konnte nicht zurückholen."; }
+          }catch(e){ wb.classList.add("bad"); wb.innerHTML="Verbindungsfehler – bitte nochmal versuchen."; }
+        });
+        return;
+      }
+      wb.innerHTML=r.msg; wb.classList.add("bad");
       if(r.needPass){ $("#passIn").classList.remove("hidden"); $("#passHint").classList.remove("hidden"); $("#passIn").focus(); }   // Feld zeigen, falls Race
       return;
     }
