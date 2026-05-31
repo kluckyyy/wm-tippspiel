@@ -1223,13 +1223,28 @@ $("#changeNick").addEventListener("click",()=>{ $("#joinCard").classList.remove(
   head.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); toggle(); } });
 })();
 // Start-Regeln: Bestätigung ist Pflicht, sonst kein Zugang. Pro Gerät gemerkt (LS) + Versionsabgleich.
+const RULES_READ_SECS = 10;   // Lesezeit-Sperre: Annehmen erst nach Ablauf des Countdowns moeglich
+let rulesTimerStarted = false;
+function refreshRulesBtn(){ const cb=$("#rulesAgree"), btn=$("#rulesBtn"); if(!cb||!btn) return;
+  btn.disabled = !(btn.dataset.timerDone==="1" && cb.checked);
+}
+function startRulesTimer(){ const btn=$("#rulesBtn"); if(!btn || rulesTimerStarted) return;
+  rulesTimerStarted = true;
+  const label = btn.dataset.label || btn.textContent; btn.dataset.label = label;
+  let left = RULES_READ_SECS; btn.dataset.timerDone = "0";
+  btn.textContent = "Bitte erst lesen … " + left + "s"; refreshRulesBtn();
+  const t = setInterval(()=>{ left--;
+    if(left<=0){ clearInterval(t); btn.dataset.timerDone="1"; btn.textContent=label; refreshRulesBtn(); }
+    else { btn.textContent = "Bitte erst lesen … " + left + "s"; }
+  }, 1000);
+}
 function showRulesGate(){ const g=$("#rulesGate"); if(!g) return;
   if(LS("wmt_rules_ok")===RULES_VERSION){ g.classList.add("hidden"); document.body.style.overflow=""; }
-  else { g.classList.remove("hidden"); document.body.style.overflow="hidden"; }
+  else { g.classList.remove("hidden"); document.body.style.overflow="hidden"; startRulesTimer(); }
 }
 (function(){ const cb=$("#rulesAgree"), btn=$("#rulesBtn"); if(!cb||!btn) return;
-  cb.addEventListener("change",()=>{ btn.disabled=!cb.checked; });
-  btn.addEventListener("click",()=>{ if(!cb.checked) return; LS("wmt_rules_ok",RULES_VERSION); $("#rulesGate").classList.add("hidden"); document.body.style.overflow=""; });
+  cb.addEventListener("change", refreshRulesBtn);
+  btn.addEventListener("click",()=>{ if(btn.disabled) return; LS("wmt_rules_ok",RULES_VERSION); $("#rulesGate").classList.add("hidden"); document.body.style.overflow=""; });
 })();
 $("#lockToggle").addEventListener("change",e=>setLock(e.target.checked));
 $("#savePass").addEventListener("click",()=>{
