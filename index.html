@@ -111,6 +111,13 @@
   .rank-name .sub{font-size:11px; color:var(--ink-soft); font-weight:600; text-transform:uppercase; letter-spacing:.04em; margin-top:2px}
   .rank-pts{font-family:var(--font-display); font-weight:400; font-size:31px; color:var(--green); text-align:right; line-height:.9}
   .rank-pts small{display:block; font-family:var(--font-body); font-size:9.5px; color:var(--ink-soft); font-weight:800; text-transform:uppercase; letter-spacing:.1em}
+  /* Weltmeister-Tipp je Spieler in der Rangliste */
+  .rank-champ{display:flex; align-items:center; gap:6px; min-width:0; margin-top:4px; font-size:12px; font-weight:800; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.02em}
+  .rank-champ .flagimg{width:22px; flex:none}
+  .rank-champ .flag-emo{font-size:16px; flex:none}
+  .rank-champ .rc-nm{color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0}
+  .rank-champ.ok{color:var(--green)} .rank-champ.ok .rc-nm{color:var(--green)}
+  .rank-champ .rc-pts{font-family:var(--font-display); font-weight:400; color:var(--green); font-size:15px; margin-left:2px; flex:none}
 
   /* Jubel-GIFs & Fails (Top-10-Belohnung) – kuratierte, selbst-animierte Sticker (kindgerecht, offline, keine Fremd-Links).
      Klassen sind nach BEWEGUNG benannt (nicht pro Sticker), damit viele Emojis dieselbe Animation teilen. */
@@ -1125,9 +1132,11 @@ function renderBoard(){
       if(r.me) myPos=pos;
       const medal=pos===1?"🥇":pos===2?"🥈":pos===3?"🥉":pos;
       const gifHtml=(pos<=TOP_GIF && r.gif)?`<div class="rank-gif">${gifSticker(r.gif)}</div>`:"";
+      // Weltmeister-Tipp je Spieler anzeigen (Flagge + Land); stimmt er mit dem echten Sieger -> grün + Bonus.
+      const champLine=r.champ?`<div class="rank-champ${r.champOk?' ok':''}">🏆 ${flagHTML(r.champ)}<span class="rc-nm">${esc(nameDE(r.champ))}</span>${r.champOk?`<span class="rc-pts">+${CHAMP_BONUS}</span>`:''}</div>`:"";
       const row=document.createElement("div"); row.className="rank-row rank-"+pos+(r.me?" me":"");
       row.innerHTML=`<div class="rank-pos">${medal}</div>${gifHtml}
-        <div class="rank-name">${esc(r.name)}${r.me?' <span class="pill">du</span>':''}<div class="sub">${r.exakt} exakt · ${r.getippt}/72 getippt${r.champOk?' · <b style="color:var(--green)">🏆 Weltmeister +'+CHAMP_BONUS+'</b>':''}</div></div>
+        <div class="rank-name">${esc(r.name)}${r.me?' <span class="pill">du</span>':''}<div class="sub">${r.exakt} exakt · ${r.getippt}/72 getippt</div>${champLine}</div>
         <div class="rank-pts">${r.sum}<small>Punkte</small></div>`;
       box.appendChild(row);
     });
