@@ -168,6 +168,22 @@
   .rank-gif .gifclip video{width:28px; height:28px}
   .gifopt .gifclip video{width:38px; height:38px}
 
+  /* Weltmeister-Tipp – Team-Chips & gesperrte Ansicht */
+  .champgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(86px,1fr)); gap:9px; margin-top:4px}
+  .champopt{display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:5px; padding:10px 5px 8px; background:var(--paper); border:2.5px solid var(--ink); border-radius:12px; cursor:pointer; box-shadow:3px 3px 0 var(--ink); transition:transform .08s, box-shadow .08s; min-height:74px}
+  .champopt:active{transform:translate(3px,3px); box-shadow:0 0 0 var(--ink)}
+  .champopt.sel{background:var(--yellow); box-shadow:3px 3px 0 var(--vermilion)}
+  .champopt .fl{font-size:27px; line-height:1}
+  .champopt .nm{font-size:10.5px; font-weight:800; text-align:center; line-height:1.12; text-transform:uppercase; letter-spacing:.01em; color:var(--ink)}
+  .champ-locked{display:flex; align-items:center; gap:12px; padding:12px 15px; background:var(--paper); border:2.5px solid var(--ink); border-radius:12px; box-shadow:3px 3px 0 var(--ink)}
+  .champ-locked .fl{font-size:34px; line-height:1; flex:none}
+  .champ-locked .nm{flex:1; min-width:0; font-family:var(--font-display); font-weight:400; font-size:23px; text-transform:uppercase; letter-spacing:.02em}
+  .champ-locked.good{background:var(--yellow)} .champ-locked.miss{opacity:.82}
+  .champ-tag{flex:none; font-weight:800; font-size:11px; text-transform:uppercase; letter-spacing:.06em; padding:5px 10px; border:2.5px solid var(--ink); border-radius:999px; background:var(--cream); color:var(--ink)}
+  .champ-tag.good{background:var(--green); color:var(--cream)} .champ-tag.miss{background:var(--vermilion); color:var(--cream)}
+  select.champsel{width:100%; background:var(--paper); border:2.5px solid var(--ink); color:var(--ink); border-radius:10px; padding:12px 14px; font-size:16px; font-family:var(--font-body); font-weight:700; outline:none; -webkit-appearance:none; appearance:none; cursor:pointer}
+  select.champsel:focus{border-color:var(--vermilion); box-shadow:3px 3px 0 var(--vermilion)}
+
   .empty{text-align:center; color:var(--ink-soft); padding:30px 12px; font-size:14px; font-weight:600} .empty .big{font-size:48px; display:block; margin-bottom:10px}
   .mini{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft)}
   .tiny{font-size:11px; color:var(--ink-soft); font-weight:500}
@@ -285,6 +301,11 @@
         <div class="mini" id="tipCount" style="margin-top:8px">0 / 72 getippt</div>
         <div class="savedtag" id="tipSaved" style="margin-top:4px">✓ Zwischenstand gespeichert</div>
       </div>
+      <div class="card" id="champCard">
+        <h2>🏆 Dein Weltmeister-Tipp</h2>
+        <p class="hint" id="champHint"></p>
+        <div id="champBody"></div>
+      </div>
       <div class="card" id="nextCard">
         <h2 style="margin-bottom:4px">⏱️ Als Nächstes</h2>
         <p class="hint" style="margin-bottom:12px">Tippe von Spiel zu Spiel – <b>bis zur letzten Sekunde</b> vor Anpfiff. Alle 72 Spiele findest du darunter.</p>
@@ -372,6 +393,17 @@
       <div id="removedAdmin"></div>
     </div>
     <div class="card">
+      <h2>🏆 Weltmeister-Bonus</h2>
+      <p class="hint">Wer den <b>Weltmeister</b> schon <b>vor dem ersten Spiel</b> getippt hat, bekommt Extrapunkte. Sobald der echte Weltmeister feststeht, hier eintragen – der Bonus wird dann <b>automatisch für alle</b> vergeben. Schüler können ihren Tipp nur bis zum Anpfiff des ersten Spiels abgeben/ändern.</p>
+      <label for="champSel">Weltmeister steht fest auf …</label>
+      <select id="champSel" class="champsel"></select>
+      <div class="btn-row" style="margin-top:10px; align-items:center">
+        <button class="btn sec sm" id="saveChamp">Weltmeister speichern</button>
+        <span class="savedtag" id="champSaved">✓ gesetzt</span>
+      </div>
+      <p class="tiny" id="champAdminStatus" style="margin-top:10px"></p>
+    </div>
+    <div class="card">
       <h2>⚽ Ergebnisse</h2>
       <p class="hint"><span class="statusdot" id="resDot"></span><span id="resStatus">Ergebnisse werden automatisch geladen.</span></p>
       <p class="tiny">Die Endstände zieht die App automatisch aus offenen WM-Daten und wertet sie für alle –
@@ -404,6 +436,7 @@ const FIREBASE_CONFIG = {
 const RESULTS_URL = "https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json";
 const RESULTS_POLL_MS = 90000;
 const PUNKTE = { exakt:4, diff:3, tendenz:2 };
+const CHAMP_BONUS = 8;   // Extrapunkte für den richtig getippten Weltmeister (Tipp muss VOR Anpfiff des 1. Spiels stehen)
 const RULES_VERSION = "1";   // hochzählen, wenn die Regeln geändert werden -> alle müssen neu bestätigen
 
 /* ================= TEAMS / GRUPPEN ================= */
@@ -533,7 +566,7 @@ const LS=(k,v)=>{ try{ if(v===undefined) return localStorage.getItem(k); localSt
 let MODE="local";            // 'fire' | 'local'
 let ROOM=null, ADMIN=false, ADMINTOKEN=null;
 let MYPID = LS("wmt_pid"); if(!MYPID){ MYPID="p"+Math.random().toString(36).slice(2,10); LS("wmt_pid",MYPID); }
-let me = { name: LS("wmt_name")||"", tips: loadTipsLS(), gif: LS("wmt_gif")||"" };
+let me = { name: LS("wmt_name")||"", tips: loadTipsLS(), gif: LS("wmt_gif")||"", champ: LS("wmt_champ")||"" };
 let players = {};            // pid -> {name,tips}
 let roomState = { locked:false };
 let results = {};            // fixtureId -> [h,g]
@@ -645,6 +678,7 @@ async function recoverPlayer(oldPid){
   me.name=op.name; LS("wmt_name", op.name);
   me.tips=Object.assign({}, op.tips||{}); saveTipsLS();
   me.gif=gifValid(op.gif); LS("wmt_gif", me.gif);
+  me.champ=champValid(op.champ); LS("wmt_champ", me.champ);
   hydrated=true;
   return {ok:true};
 }
@@ -791,6 +825,31 @@ function untilStr(kt){
 
 function isLocked(f){ return !!results[f.id] || kickoffPassed(f); }
 
+/* ================= WELTMEISTER-TIPP (Extrapunkte) =================
+   Tipp muss VOR Anpfiff des ersten Spiels stehen; danach gesperrt. Der tatsächliche
+   Weltmeister wird vom Lehrer gesetzt (state/champion) – Quelle der Wahrheit für den Bonus. */
+function champValid(tk){ return (tk && TEAMS[tk]) ? tk : ""; }
+// WM-Start = Anpfiff des frühesten Spiels. null = Anstoßzeiten noch nicht geladen (dann noch offen).
+function wmStart(){ let min=null; for(const f of FIXTURES){ const kt=kickoffTime(f); if(kt!=null && (min==null||kt<min)) min=kt; } return min; }
+function champLocked(){ const s=wmStart(); return s!=null && Date.now()>=s; }
+// Eigener Weltmeister-Tipp (Quelle: players/<pid>/champ in fire, sonst me.champ).
+function myChamp(){ return champValid((MODE==="fire")? (players[MYPID]&&players[MYPID].champ) : me.champ); }
+function setMyChamp(tk){
+  if(champLocked()) return;                                       // nach Anpfiff des 1. Spiels nicht mehr änderbar
+  if(MODE==="fire" && players[MYPID] && players[MYPID].removed) return;   // entfernte Spieler tippen nicht
+  tk=champValid(tk);
+  me.champ=tk; LS("wmt_champ", tk);
+  if(MODE==="fire"){ rref("players/"+MYPID+"/champ").set(tk||null); }   // Leaf-Write: additiv, löscht nichts anderes
+  else { players[MYPID]={...(players[MYPID]||{name:me.name,tips:me.tips}), champ:tk}; }
+  renderChampPick(); renderBoard();
+}
+// Tatsächlicher Weltmeister (vom Lehrer gesetzt, sobald er feststeht).
+function actualChampion(){ return champValid(roomState&&roomState.champion); }
+function setActualChampion(tk){
+  tk=champValid(tk);
+  if(MODE==="fire"){ rref("state/champion").set(tk||null); } else { roomState.champion=tk||null; renderAll(); }
+}
+
 let toastT; function toast(m,err){ const t=$("#toast"); t.textContent=m; t.className="toast show"+(err?" err":""); clearTimeout(toastT); toastT=setTimeout(()=>t.className="toast",2400); }
 async function copyText(t){ try{ await navigator.clipboard.writeText(t); return true; }catch(e){ try{const a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();document.execCommand("copy");a.remove();return true;}catch(e2){return false;} } }
 
@@ -846,6 +905,7 @@ function renderTippen(){
   $("#tipCount").textContent=got+" / 72 getippt";
   $("#progBar").style.width=(got/72*100)+"%";
   renderNext();
+  renderChampPick();
 }
 function fmtDate(iso){ try{ const [y,m,d]=iso.split("-"); return d+"."+m+"."; }catch(e){ return iso; } }
 // Anpfiff in der LOKALEN Zeitzone des Geraets (Deutschland) anzeigen – openfootball liefert Stadion-Ortszeit (z.B. "20:00 UTC-4")
@@ -1011,8 +1071,12 @@ function gifSticker(id){
 function rankedPlayers(){
   const arr=[];
   const src = (MODE==="fire")? players : (me.name? {[MYPID]:{name:me.name,tips:me.tips}} : {});
+  const champ=actualChampion();
   for(const pid in src){ const p=src[pid]; if(!p||!p.name||p.removed) continue;   // entfernte Spieler nicht werten/zeigen
-    arr.push({pid, name:p.name, gif:gifValid(p.gif), ...totalFor(p.tips||{}, results, p.susp||[], kickoffTime), me:pid===MYPID}); }
+    const base=totalFor(p.tips||{}, results, p.susp||[], kickoffTime);
+    const ch=champValid(p.champ), champOk=!!(ch && champ && ch===champ);   // Weltmeister-Bonus, sobald der echte Sieger gesetzt ist
+    const champBonus=champOk?CHAMP_BONUS:0;
+    arr.push({pid, name:p.name, gif:gifValid(p.gif), ...base, champ:ch, champOk, champBonus, sum:base.sum+champBonus, me:pid===MYPID}); }
   arr.sort((a,b)=> b.sum-a.sum||b.exakt-a.exakt||a.name.localeCompare(b.name));
   return arr;
 }
@@ -1031,7 +1095,7 @@ function renderBoard(){
       const gifHtml=(pos<=TOP_GIF && r.gif)?`<div class="rank-gif">${gifSticker(r.gif)}</div>`:"";
       const row=document.createElement("div"); row.className="rank-row rank-"+pos+(r.me?" me":"");
       row.innerHTML=`<div class="rank-pos">${medal}</div>${gifHtml}
-        <div class="rank-name">${esc(r.name)}${r.me?' <span class="pill">du</span>':''}<div class="sub">${r.exakt} exakt · ${r.getippt}/72 getippt</div></div>
+        <div class="rank-name">${esc(r.name)}${r.me?' <span class="pill">du</span>':''}<div class="sub">${r.exakt} exakt · ${r.getippt}/72 getippt${r.champOk?' · <b style="color:var(--green)">🏆 Weltmeister +'+CHAMP_BONUS+'</b>':''}</div></div>
         <div class="rank-pts">${r.sum}<small>Punkte</small></div>`;
       box.appendChild(row);
     });
@@ -1069,6 +1133,53 @@ function renderGifPicker(){
     const id=o.dataset.gif; setMyGif(id);
     toast(id?("Gewählt: "+(GIFBYID[id]?GIFBYID[id].label:"GIF")+" "+(GIFBYID[id]?GIFBYID[id].emoji:"")):"GIF entfernt");
   }));
+}
+// Weltmeister-Tipp-Karte (Schüler): offen -> Team-Auswahl mit Countdown; gesperrt -> nur der gewählte Tipp + Status.
+function renderChampPick(){
+  const card=$("#champCard"); if(!card) return;
+  const body=$("#champBody"), hint=$("#champHint");
+  const locked=champLocked(), mine=myChamp(), actual=actualChampion();
+  if(hint){
+    if(locked){
+      hint.innerHTML = actual
+        ? (mine
+            ? (mine===actual ? '🎉 <b>Volltreffer!</b> Du hast den Weltmeister richtig getippt – <b>+'+CHAMP_BONUS+' Punkte</b>!'
+                             : 'Der Weltmeister steht fest: <b>'+flag(actual)+' '+esc(nameDE(actual))+'</b>. Dein Tipp war '+flag(mine)+' '+esc(nameDE(mine))+' – diesmal leider daneben.')
+            : 'Der Weltmeister steht fest: <b>'+flag(actual)+' '+esc(nameDE(actual))+'</b>. Du hattest keinen Weltmeister getippt.')
+        : (mine
+            ? 'Die WM läuft – dein Tipp ist <b>gesperrt</b>: '+flag(mine)+' '+esc(nameDE(mine))+'. Wird er Weltmeister, gibt es <b>+'+CHAMP_BONUS+' Punkte</b>.'
+            : 'Die WM hat begonnen – ein Weltmeister-Tipp ist jetzt nicht mehr möglich.');
+    } else {
+      hint.innerHTML = 'Tippe <b>vor dem Anpfiff des ersten Spiels</b>, wer Weltmeister wird – richtig getippt = <b>+'+CHAMP_BONUS+' Extrapunkte</b>! Du kannst bis dahin jederzeit wechseln.'
+        + (wmStart()!=null ? ' <span class="tiny">Noch '+esc(untilStr(wmStart()))+' möglich.</span>' : '');
+    }
+  }
+  if(!body) return;
+  if(locked){
+    body.dataset.built="";   // bei (theoretischem) Entsperren Grid neu bauen lassen
+    if(mine){
+      const ok=actual&&mine===actual, bad=actual&&mine!==actual;
+      body.innerHTML='<div class="champ-locked'+(ok?' good':bad?' miss':'')+'"><span class="fl">'+flag(mine)+'</span><span class="nm">'+esc(nameDE(mine))+'</span>'
+        +(ok?'<span class="champ-tag good">✅ +'+CHAMP_BONUS+'</span>':bad?'<span class="champ-tag miss">daneben</span>':'<span class="champ-tag">gesperrt 🔒</span>')+'</div>';
+    } else {
+      body.innerHTML='<div class="tiny">Kein Weltmeister-Tipp abgegeben.</div>';
+    }
+    return;
+  }
+  if(body.dataset.built!=="1"){
+    const teams=Object.keys(TEAMS).sort((a,b)=>nameDE(a).localeCompare(nameDE(b),"de"));
+    body.innerHTML='<div class="champgrid">'+teams.map(tk=>
+      '<div class="champopt" data-champ="'+tk+'"><span class="fl">'+flag(tk)+'</span><span class="nm">'+esc(nameDE(tk))+'</span></div>'
+    ).join("")+'</div>';
+    body.querySelectorAll("[data-champ]").forEach(o=>o.addEventListener("click",()=>{
+      const tk=o.dataset.champ, cur=myChamp();
+      setMyChamp(cur===tk?"":tk);   // nochmal auf denselben Tipp = abwählen
+      toast(cur===tk?"Weltmeister-Tipp entfernt":("Weltmeister-Tipp: "+nameDE(tk)+" "+flag(tk)));
+    }));
+    body.dataset.built="1";
+  }
+  const cur=myChamp();
+  body.querySelectorAll("[data-champ]").forEach(o=>o.classList.toggle("sel", o.dataset.champ===cur));
 }
 function renderAdmin(){
   if(!ADMIN) return;
@@ -1119,6 +1230,24 @@ function renderAdmin(){
         purgePlayer(b.dataset.del); toast("Endgültig gelöscht");
       }
     }));
+  }
+  // Weltmeister-Bonus: tatsächlichen Sieger setzen (treibt den +CHAMP_BONUS für alle, die ihn getippt hatten)
+  const sel=$("#champSel");
+  if(sel){
+    if(!sel.dataset.built){
+      const teams=Object.keys(TEAMS).sort((a,b)=>nameDE(a).localeCompare(nameDE(b),"de"));
+      sel.innerHTML='<option value="">— noch nicht entschieden —</option>'+teams.map(tk=>'<option value="'+tk+'">'+flag(tk)+' '+esc(nameDE(tk))+'</option>').join("");
+      sel.dataset.built="1";
+    }
+    const actual=actualChampion();
+    if(document.activeElement!==sel) sel.value=actual;
+    const st=$("#champAdminStatus");
+    if(st){
+      const n=rankedPlayers().filter(r=>r.champOk).length;
+      st.innerHTML = actual
+        ? '✅ Weltmeister: <b>'+flag(actual)+' '+esc(nameDE(actual))+'</b> · '+(n? ('<b>'+n+'</b> mit Bonus (+'+CHAMP_BONUS+').') : 'noch niemand hatte ihn getippt.')
+        : 'Noch kein Weltmeister gesetzt – der Bonus (+'+CHAMP_BONUS+') wird vergeben, sobald du ihn hier einträgst.';
+    }
   }
 }
 function renderShare(){
@@ -1286,6 +1415,12 @@ $("#savePass").addEventListener("click",()=>{
   setClassPass(v);
   const tag=$("#passSaved"); tag.textContent=v?"✓ gesetzt":"✓ entfernt"; tag.classList.add("show"); setTimeout(()=>tag.classList.remove("show"),1800);
   toast(v?"Klassen-Passwort gesetzt ✓":"Passwort entfernt",false);
+});
+$("#saveChamp").addEventListener("click",()=>{
+  const v=$("#champSel").value;
+  setActualChampion(v);
+  const tag=$("#champSaved"); tag.textContent=v?"✓ gesetzt":"✓ zurückgesetzt"; tag.classList.add("show"); setTimeout(()=>tag.classList.remove("show"),1800);
+  toast(v?("Weltmeister: "+nameDE(v)):"Weltmeister zurückgesetzt",false);
 });
 $("#copyLink").addEventListener("click",async()=>toast(await copyText($("#studentLink").textContent)?"Schüler-Link kopiert ✓":"Konnte nicht kopieren",false));
 $("#copyAdmin").addEventListener("click",async()=>toast(await copyText($("#adminLink").textContent)?"Lehrer-Link kopiert ✓":"Konnte nicht kopieren",false));
