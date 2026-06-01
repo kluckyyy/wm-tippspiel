@@ -156,7 +156,7 @@
   /* zuklappbare Jubel-Karte – startet eingeklappt, damit sie wenig Platz nimmt */
   .gifcard{padding-top:0; padding-bottom:0}
   .gifhead{display:flex; align-items:center; gap:10px; cursor:pointer; user-select:none; padding:15px 0}
-  .gifhead h2{margin:0; flex:1}
+  .gifhead h2{margin:0; flex:1; min-width:0}
   .gifhead-cur{flex:none; display:flex; align-items:center; min-height:26px}
   .gifhead .arrow{flex:none; font-size:16px; opacity:.65; transition:transform .2s}
   .gifcard.open .gifhead .arrow{transform:rotate(180deg)}
@@ -198,6 +198,11 @@
   .gifhead-cur .flag-emo{font-size:20px; line-height:1}
   .champ-cur-nm{font-weight:800; font-size:12px; margin-left:7px; vertical-align:middle; text-transform:uppercase; letter-spacing:.03em}
   .champ-cur-empty{font-size:11px; color:var(--ink-soft); font-weight:700; text-transform:uppercase; letter-spacing:.05em}
+  /* Nudge im Kopf, solange noch kein Weltmeister getippt wurde */
+  .champ-cur-warn{display:inline-block; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.02em; color:var(--cream); background:var(--vermilion); border:2px solid var(--ink); border-radius:999px; padding:4px 9px; box-shadow:2px 2px 0 var(--ink); white-space:nowrap; animation:champnudge 1.25s ease-in-out infinite}
+  @keyframes champnudge{0%,100%{transform:scale(1)} 50%{transform:scale(1.07)}}
+  .gifcard.needtip{border-color:var(--vermilion); box-shadow:5px 5px 0 var(--vermilion)}
+  @media (prefers-reduced-motion:reduce){ .champ-cur-warn{animation:none} }
   select.champsel{width:100%; background:var(--paper); border:2.5px solid var(--ink); color:var(--ink); border-radius:10px; padding:12px 14px; font-size:16px; font-family:var(--font-body); font-weight:700; outline:none; -webkit-appearance:none; appearance:none; cursor:pointer}
   select.champsel:focus{border-color:var(--vermilion); box-shadow:3px 3px 0 var(--vermilion)}
 
@@ -1183,9 +1188,11 @@ function renderChampPick(){
   // Einklappbar: startet zugeklappt (Karte ist groß), Zustand pro Gerät gemerkt.
   if(!card.dataset.init){ card.classList.toggle("open", LS("wmt_champopen")==="1"); card.dataset.init="1"; }
   const head=$("#champHead"); if(head) head.setAttribute("aria-expanded", card.classList.contains("open")?"true":"false");
-  const hc=$("#champHeadCur");   // gewählten Tipp (Flagge + Name) auch im eingeklappten Kopf zeigen
+  card.classList.toggle("needtip", !mine && !locked);   // auffälliger Nudge, solange (vor WM-Start) noch kein Weltmeister getippt ist – verschwindet beim Tippen
+  const hc=$("#champHeadCur");   // gewählten Tipp (Flagge + Name) bzw. Hinweis auch im eingeklappten Kopf zeigen
   if(hc) hc.innerHTML = mine ? (flagHTML(mine)+'<span class="champ-cur-nm">'+esc(nameDE(mine))+'</span>')
-                             : '<span class="champ-cur-empty">'+(locked?'kein Tipp':'antippen')+'</span>';
+                             : (locked ? '<span class="champ-cur-empty">kein Tipp</span>'
+                                       : '<span class="champ-cur-warn">⚠️ Noch nicht getippt!</span>');
   if(hint){
     if(locked){
       hint.innerHTML = actual
