@@ -181,6 +181,16 @@
   .champ-locked.good{background:var(--yellow)} .champ-locked.miss{opacity:.82}
   .champ-tag{flex:none; font-weight:800; font-size:11px; text-transform:uppercase; letter-spacing:.06em; padding:5px 10px; border:2.5px solid var(--ink); border-radius:999px; background:var(--cream); color:var(--ink)}
   .champ-tag.good{background:var(--green); color:var(--cream)} .champ-tag.miss{background:var(--vermilion); color:var(--cream)}
+  /* echte Flaggen-Bilder (flagcdn) + Emoji-Fallback */
+  .flagimg{display:block; width:38px; height:auto; border:1px solid rgba(23,31,24,.22); border-radius:3px; box-shadow:0 1px 2px rgba(0,0,0,.14)}
+  .champopt .flagimg{margin:0 auto}
+  .champopt .flag-emo{font-size:27px; line-height:1}
+  .champ-locked .flagimg{width:48px; flex:none}
+  .champ-locked .flag-emo{font-size:34px; line-height:1; flex:none}
+  .gifhead-cur .flagimg{display:inline-block; vertical-align:middle; width:27px; margin:0}
+  .gifhead-cur .flag-emo{font-size:20px; line-height:1}
+  .champ-cur-nm{font-weight:800; font-size:12px; margin-left:7px; vertical-align:middle; text-transform:uppercase; letter-spacing:.03em}
+  .champ-cur-empty{font-size:11px; color:var(--ink-soft); font-weight:700; text-transform:uppercase; letter-spacing:.05em}
   select.champsel{width:100%; background:var(--paper); border:2.5px solid var(--ink); color:var(--ink); border-radius:10px; padding:12px 14px; font-size:16px; font-family:var(--font-body); font-weight:700; outline:none; -webkit-appearance:none; appearance:none; cursor:pointer}
   select.champsel:focus{border-color:var(--vermilion); box-shadow:3px 3px 0 var(--vermilion)}
 
@@ -301,10 +311,16 @@
         <div class="mini" id="tipCount" style="margin-top:8px">0 / 72 getippt</div>
         <div class="savedtag" id="tipSaved" style="margin-top:4px">✓ Zwischenstand gespeichert</div>
       </div>
-      <div class="card" id="champCard">
-        <h2>🏆 Dein Weltmeister-Tipp</h2>
-        <p class="hint" id="champHint"></p>
-        <div id="champBody"></div>
+      <div class="card gifcard" id="champCard">
+        <div class="gifhead" id="champHead" role="button" tabindex="0" aria-expanded="false" aria-controls="champBodyWrap">
+          <h2>🏆 Dein Weltmeister-Tipp</h2>
+          <span class="gifhead-cur" id="champHeadCur"></span>
+          <span class="arrow">▾</span>
+        </div>
+        <div class="gifbody" id="champBodyWrap">
+          <p class="hint" id="champHint"></p>
+          <div id="champBody"></div>
+        </div>
       </div>
       <div class="card" id="nextCard">
         <h2 style="margin-bottom:4px">⏱️ Als Nächstes</h2>
@@ -829,6 +845,22 @@ function isLocked(f){ return !!results[f.id] || kickoffPassed(f); }
    Tipp muss VOR Anpfiff des ersten Spiels stehen; danach gesperrt. Der tatsächliche
    Weltmeister wird vom Lehrer gesetzt (state/champion) – Quelle der Wahrheit für den Bonus. */
 function champValid(tk){ return (tk && TEAMS[tk]) ? tk : ""; }
+// Echte Flaggen-Bilder (flagcdn, gratis/kein Key) – auf Windows zeigt das Emoji nur Länder-Kürzel.
+// ISO 3166-1 alpha-2 (England/Schottland = gb-eng/gb-sct). Fehlt ein Mapping -> Emoji-Fallback.
+const FLAG_ISO = {
+ mexico:"mx", southafrica:"za", southkorea:"kr", czechia:"cz", canada:"ca", bosnia:"ba", qatar:"qa", switzerland:"ch",
+ brazil:"br", morocco:"ma", haiti:"ht", scotland:"gb-sct", usa:"us", paraguay:"py", australia:"au", turkey:"tr",
+ germany:"de", curacao:"cw", ivorycoast:"ci", ecuador:"ec", netherlands:"nl", japan:"jp", sweden:"se", tunisia:"tn",
+ belgium:"be", egypt:"eg", iran:"ir", newzealand:"nz", spain:"es", capeverde:"cv", saudiarabia:"sa", uruguay:"uy",
+ france:"fr", senegal:"sn", iraq:"iq", norway:"no", argentina:"ar", algeria:"dz", austria:"at", jordan:"jo",
+ portugal:"pt", drcongo:"cd", uzbekistan:"uz", colombia:"co", england:"gb-eng", croatia:"hr", ghana:"gh", panama:"pa"
+};
+function flagHTML(tk){
+  const iso=FLAG_ISO[tk];
+  if(!iso) return '<span class="flag-emo">'+flag(tk)+'</span>';
+  return '<img class="flagimg" src="https://flagcdn.com/w80/'+iso+'.png" srcset="https://flagcdn.com/w160/'+iso+'.png 2x" alt="'+esc(nameDE(tk))+'" loading="lazy" data-fb="'+flag(tk)+'" onerror="flagFallback(this)">';
+}
+function flagFallback(img){ try{ const s=document.createElement("span"); s.className="flag-emo"; s.textContent=img.dataset.fb||""; img.replaceWith(s); }catch(e){} }
 // WM-Start = Anpfiff des frühesten Spiels. null = Anstoßzeiten noch nicht geladen (dann noch offen).
 function wmStart(){ let min=null; for(const f of FIXTURES){ const kt=kickoffTime(f); if(kt!=null && (min==null||kt<min)) min=kt; } return min; }
 function champLocked(){ const s=wmStart(); return s!=null && Date.now()>=s; }
@@ -1139,6 +1171,12 @@ function renderChampPick(){
   const card=$("#champCard"); if(!card) return;
   const body=$("#champBody"), hint=$("#champHint");
   const locked=champLocked(), mine=myChamp(), actual=actualChampion();
+  // Einklappbar: startet zugeklappt (Karte ist groß), Zustand pro Gerät gemerkt.
+  if(!card.dataset.init){ card.classList.toggle("open", LS("wmt_champopen")==="1"); card.dataset.init="1"; }
+  const head=$("#champHead"); if(head) head.setAttribute("aria-expanded", card.classList.contains("open")?"true":"false");
+  const hc=$("#champHeadCur");   // gewählten Tipp (Flagge + Name) auch im eingeklappten Kopf zeigen
+  if(hc) hc.innerHTML = mine ? (flagHTML(mine)+'<span class="champ-cur-nm">'+esc(nameDE(mine))+'</span>')
+                             : '<span class="champ-cur-empty">'+(locked?'kein Tipp':'antippen')+'</span>';
   if(hint){
     if(locked){
       hint.innerHTML = actual
@@ -1159,7 +1197,7 @@ function renderChampPick(){
     body.dataset.built="";   // bei (theoretischem) Entsperren Grid neu bauen lassen
     if(mine){
       const ok=actual&&mine===actual, bad=actual&&mine!==actual;
-      body.innerHTML='<div class="champ-locked'+(ok?' good':bad?' miss':'')+'"><span class="fl">'+flag(mine)+'</span><span class="nm">'+esc(nameDE(mine))+'</span>'
+      body.innerHTML='<div class="champ-locked'+(ok?' good':bad?' miss':'')+'">'+flagHTML(mine)+'<span class="nm">'+esc(nameDE(mine))+'</span>'
         +(ok?'<span class="champ-tag good">✅ +'+CHAMP_BONUS+'</span>':bad?'<span class="champ-tag miss">daneben</span>':'<span class="champ-tag">gesperrt 🔒</span>')+'</div>';
     } else {
       body.innerHTML='<div class="tiny">Kein Weltmeister-Tipp abgegeben.</div>';
@@ -1169,7 +1207,7 @@ function renderChampPick(){
   if(body.dataset.built!=="1"){
     const teams=Object.keys(TEAMS).sort((a,b)=>nameDE(a).localeCompare(nameDE(b),"de"));
     body.innerHTML='<div class="champgrid">'+teams.map(tk=>
-      '<div class="champopt" data-champ="'+tk+'"><span class="fl">'+flag(tk)+'</span><span class="nm">'+esc(nameDE(tk))+'</span></div>'
+      '<div class="champopt" data-champ="'+tk+'">'+flagHTML(tk)+'<span class="nm">'+esc(nameDE(tk))+'</span></div>'
     ).join("")+'</div>';
     body.querySelectorAll("[data-champ]").forEach(o=>o.addEventListener("click",()=>{
       const tk=o.dataset.champ, cur=myChamp();
@@ -1382,6 +1420,11 @@ $("#joinBtn").addEventListener("click",async()=>{
 $("#changeNick").addEventListener("click",()=>{ $("#joinCard").classList.remove("hidden"); $("#tippWrap").classList.add("hidden"); $("#nickIn").value=me.name; $("#nickIn").focus(); });
 (function(){ const head=$("#gifHead"); if(!head) return;   // Jubel-Karte auf-/zuklappen (Zustand gemerkt)
   const toggle=()=>{ const c=$("#gifCard"); const open=!c.classList.contains("open"); c.classList.toggle("open",open); head.setAttribute("aria-expanded",open?"true":"false"); LS("wmt_gifopen",open?"1":"0"); };
+  head.addEventListener("click",toggle);
+  head.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); toggle(); } });
+})();
+(function(){ const head=$("#champHead"); if(!head) return;   // Weltmeister-Karte auf-/zuklappen (Zustand gemerkt)
+  const toggle=()=>{ const c=$("#champCard"); const open=!c.classList.contains("open"); c.classList.toggle("open",open); head.setAttribute("aria-expanded",open?"true":"false"); LS("wmt_champopen",open?"1":"0"); };
   head.addEventListener("click",toggle);
   head.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); toggle(); } });
 })();
