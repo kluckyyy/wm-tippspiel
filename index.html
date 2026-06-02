@@ -212,7 +212,7 @@
     80%  {transform:perspective(60px) rotateY(3deg)   skewY(-.8deg)}
     100% {transform:perspective(60px) rotateY(0deg)   skewY(0deg)}
   }
-  .flag-wave{animation:flagwave 1.5s ease-in-out infinite; transform-origin:left center; will-change:transform}
+  .flag-wave{animation:flagwave 1.5s ease-in-out infinite; transform-origin:left center}
   @media (prefers-reduced-motion:reduce){ .flag-wave{animation:none} }
   .champ-cur-nm{font-weight:800; font-size:12px; margin-left:7px; vertical-align:middle; text-transform:uppercase; letter-spacing:.03em}
   .champ-cur-empty{font-size:11px; color:var(--ink-soft); font-weight:700; text-transform:uppercase; letter-spacing:.05em}
@@ -665,12 +665,12 @@ function attachListeners(){
     // alleiniger Autor der eigenen Tipps. Verhindert, dass ein Listener-Event waehrend des Tippens
     // gerade eingegebene Werte mit (evtl. veralteten) Server-Daten ueberschreibt.
     if(!hydrated && players[MYPID] && players[MYPID].tips){ me.tips=Object.assign({}, me.tips, players[MYPID].tips); saveTipsLS(); }
-    hydrated=true; renderAll(); });
+    hydrated=true; scheduleRender(); });   // gebündelt rendern: viele Tipp-Events vieler Kinder = EIN Render pro Frame (kein GIF/Flaggen-Flackern)
   rref("state").on("value", s=>{ roomState=s.val()||{locked:false};
     // Admin-Rolle gegen den echten Token verifizieren: passt der Token -> Admin, sonst KEIN Admin
     // (verhindert, dass ein falscher/geratener #...&a=-Wert die Lehrer-UI freischaltet).
     if(roomState.adminToken) ADMIN=(ADMINTOKEN===roomState.adminToken);
-    renderAll(); refreshTabs(); });
+    scheduleRender(); refreshTabs(); });
 }
 
 // Firebase-RTDB-Keys duerfen . # $ [ ] / NICHT enthalten. encodeURIComponent kodiert alle ausser
@@ -1163,24 +1163,32 @@ function rankedPlayers(){
 function renderBoard(){
   const done=Object.keys(results).length;
   $("#boardSub").textContent = (MODE==="fire"?Object.keys(players).length:(me.name?1:0))+" Mitspieler · "+done+" von 72 Spielen gewertet";
-  const arr=rankedPlayers(), box=$("#rankList"); box.innerHTML="";
+  const arr=rankedPlayers(), box=$("#rankList");
   let myPos=null;
-  if(!arr.length){ box.innerHTML='<div class="empty"><span class="big">🏆</span>Noch keine Tipps da.<br>Schüler scannen den QR-Code und tippen los!</div>'; }
-  else {
-    let pos=0,ls=null,le=null;
-    arr.forEach((r,i)=>{
-      if(r.sum!==ls||r.exakt!==le){pos=i+1;ls=r.sum;le=r.exakt;}
-      if(r.me) myPos=pos;
+  // Positionen rein berechnen (ohne DOM) – inkl. gleicher Platz bei Gleichstand
+  const rows=[]; { let pos=0,ls=null,le=null; arr.forEach((r,i)=>{ if(r.sum!==ls||r.exakt!==le){pos=i+1;ls=r.sum;le=r.exakt;} if(r.me) myPos=pos; rows.push({r,pos}); }); }
+  // Struktur-Signatur: ALLES außer dem live wechselnden "getippt"-Zähler. Nur wenn sich die Rangliste wirklich
+  // ändert (Reihenfolge/Punkte/exakt/GIF/Champ/Namen/Spielerzahl), wird komplett neu gebaut – sonst bleiben
+  // GIF + Wehen-Flagge stehen (kein Neu-Erzeugen = kein Flackern beim normalen Tippen).
+  const bsig = arr.length ? rows.map(({r,pos})=>pos+":"+r.pid+":"+r.sum+":"+r.exakt+":"+(r.gif||"")+":"+(r.champ||"")+":"+(r.champOk?1:0)+":"+(r.me?1:0)+":"+r.name).join("|") : "EMPTY";
+  if(box.dataset.bsig!==bsig){
+    box.innerHTML="";
+    if(!arr.length){ box.innerHTML='<div class="empty"><span class="big">🏆</span>Noch keine Tipps da.<br>Schüler scannen den QR-Code und tippen los!</div>'; }
+    else rows.forEach(({r,pos})=>{
       const medal=pos===1?"🥇":pos===2?"🥈":pos===3?"🥉":pos;
       const gifHtml=((r.sig || pos<=TOP_GIF) && r.gif)?`<div class="rank-gif${r.sig?' rank-gif-sig':''}">${gifSticker(r.gif)}</div>`:"";
       // Weltmeister-Tipp je Spieler anzeigen (Flagge + Land); stimmt er mit dem echten Sieger -> grün + Bonus.
       const champLine=r.champ?`<div class="rank-champ${r.champOk?' ok':''}">🏆 ${flagHTML(r.champ, r.wave?"flag-wave":"")}<span class="rc-nm">${esc(nameDE(r.champ))}</span>${r.champOk?`<span class="rc-pts">+${CHAMP_BONUS}</span>`:''}</div>`:"";
-      const row=document.createElement("div"); row.className="rank-row rank-"+pos+(r.me?" me":"");
+      const row=document.createElement("div"); row.className="rank-row rank-"+pos+(r.me?" me":""); row.id="rrow-"+r.pid;
       row.innerHTML=`<div class="rank-pos">${medal}</div>${gifHtml}
-        <div class="rank-name">${esc(r.name)}${r.me?' <span class="pill">du</span>':''}<div class="sub">${r.exakt} exakt · ${r.getippt}/72 getippt</div>${champLine}</div>
+        <div class="rank-name">${esc(r.name)}${r.me?' <span class="pill">du</span>':''}<div class="sub" id="rsub-${r.pid}">${r.exakt} exakt · ${r.getippt}/72 getippt</div>${champLine}</div>
         <div class="rank-pts">${r.sum}<small>Punkte</small></div>`;
       box.appendChild(row);
     });
+    box.dataset.bsig=bsig;
+  } else {
+    // Rangliste strukturell unverändert -> nur den live "getippt"-Zähler je Spieler in-place aktualisieren
+    rows.forEach(({r})=>{ const sub=document.getElementById("rsub-"+r.pid); if(sub) sub.innerHTML=r.exakt+" exakt · "+r.getippt+"/72 getippt"; });
   }
   // Jubel-GIF-Picker: nur für mitspielende, nicht-entfernte Personen; freigeschaltet ab Top 10.
   const amPlayer = !!(me.name && me.name.trim()) && !(MODE==="fire" && players[MYPID] && players[MYPID].removed);
@@ -1375,6 +1383,16 @@ function renderBanner(){
   }
 }
 function renderAll(){ renderBanner(); renderHeader(); renderTippen(); renderBoard(); renderAdmin(); renderShare(); }
+// Render-Bündelung: feuern mehrere Firebase-Events kurz hintereinander (viele Kinder tippen gleichzeitig),
+// wird trotzdem nur EINMAL pro Frame neu gerendert. Verhindert Re-Render-Stau + ständiges Neu-Erzeugen
+// von GIF/Flagge (= Flackern/Ruckeln). Daten sind vorher schon aktualisiert; nur das DOM-Rendern wartet.
+let _renderQueued=false;
+function scheduleRender(){
+  if(_renderQueued) return;
+  _renderQueued=true;
+  const run=()=>{ _renderQueued=false; renderAll(); };
+  if(typeof requestAnimationFrame==="function") requestAnimationFrame(run); else setTimeout(run,16);
+}
 
 /* ================= TABS ================= */
 function refreshTabs(){
