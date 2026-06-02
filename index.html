@@ -214,6 +214,11 @@
   }
   .flag-wave{animation:flagwave 1.5s ease-in-out infinite; transform-origin:left center}
   @media (prefers-reduced-motion:reduce){ .flag-wave{animation:none} }
+  /* Verbindungs-Banner (Resilienz): nur sichtbar bei .show – unten zentriert, stört das Tippen nicht */
+  .netbar{position:fixed; left:50%; bottom:14px; transform:translateX(-50%) translateY(150%); max-width:92vw; z-index:200; padding:10px 16px; border:3px solid var(--ink); border-radius:999px; font-weight:800; font-size:13px; line-height:1.25; box-shadow:4px 4px 0 var(--ink); opacity:0; transition:transform .25s, opacity .25s; pointer-events:none; text-align:center}
+  .netbar.show{transform:translateX(-50%) translateY(0); opacity:1}
+  .netbar.off{background:var(--vermilion); color:var(--cream)}
+  .netbar.ok{background:var(--green); color:var(--cream)}
   .champ-cur-nm{font-weight:800; font-size:12px; margin-left:7px; vertical-align:middle; text-transform:uppercase; letter-spacing:.03em}
   .champ-cur-empty{font-size:11px; color:var(--ink-soft); font-weight:700; text-transform:uppercase; letter-spacing:.05em}
   /* Nudge im Kopf, solange noch kein Weltmeister getippt wurde */
@@ -659,18 +664,42 @@ async function ensureRoom(){
   }
 }
 
+let _wasOnline=false;
 function attachListeners(){
   rref("players").on("value", s=>{ players=s.val()||{};
-    // Eigene Tipps nur EINMAL vom Server uebernehmen (Rejoin/Reload) – danach ist das lokale Geraet
-    // alleiniger Autor der eigenen Tipps. Verhindert, dass ein Listener-Event waehrend des Tippens
-    // gerade eingegebene Werte mit (evtl. veralteten) Server-Daten ueberschreibt.
-    if(!hydrated && players[MYPID] && players[MYPID].tips){ me.tips=Object.assign({}, me.tips, players[MYPID].tips); saveTipsLS(); }
-    hydrated=true; scheduleRender(); });   // gebündelt rendern: viele Tipp-Events vieler Kinder = EIN Render pro Frame (kein GIF/Flaggen-Flackern)
+    // Beim ERSTEN Sync Server-Tipps mit den lokalen mergen – LOKAL gewinnt bei Konflikt (dieses Gerät ist Autor
+    // seiner Tipps; so gehen offline getippte Änderungen nicht verloren). Danach ist das lokale Gerät alleiniger Autor.
+    if(!hydrated && players[MYPID] && players[MYPID].tips){ me.tips=Object.assign({}, players[MYPID].tips, me.tips); saveTipsLS(); }
+    const wasHydrated=hydrated; hydrated=true; scheduleRender();   // gebündelt rendern: viele Tipp-Events = EIN Render pro Frame
+    if(!wasHydrated) resyncTips();   // einmal nach dem ersten Sync: lokale (evtl. offline) Tipps sicher zum Server spiegeln
+  });
   rref("state").on("value", s=>{ roomState=s.val()||{locked:false};
     // Admin-Rolle gegen den echten Token verifizieren: passt der Token -> Admin, sonst KEIN Admin
     // (verhindert, dass ein falscher/geratener #...&a=-Wert die Lehrer-UI freischaltet).
     if(roomState.adminToken) ADMIN=(ADMINTOKEN===roomState.adminToken);
     scheduleRender(); refreshTabs(); });
+  // Verbindungs-Resilienz: Banner bei Abbruch + bei Re-Connect lokale Tipps nachsenden (flaches Klassen-WLAN).
+  try{ db.ref(".info/connected").on("value", s=>{ const on=s.val()===true; showNet(on); if(on && _wasOnline===false && hydrated) resyncTips(); _wasOnline=on; }); }catch(e){}
+}
+// Lokale Tipps in den Server spiegeln (idempotenter Merge) – sichert gegen stillen Verlust bei WLAN-Abbruch/Reload.
+function resyncTips(){
+  if(MODE!=="fire" || !hydrated) return;
+  if(!(players[MYPID] && !players[MYPID].removed)) return;
+  if(me.tips && Object.keys(me.tips).length){ try{ rref("players/"+MYPID+"/tips").update(me.tips).catch(()=>{}); }catch(e){} }
+}
+// Verbindungs-Banner: meldet einen Abbruch erst nach 2,5 s (kein Flackern bei kurzen Hängern/normalen Loads),
+// bei Rückkehr kurz "wieder verbunden". Rein informativ – Tipps sind lokal gesichert und werden nachgesendet.
+let _netOffT, _netHideT, _netShownOff=false;
+function ensureNetbar(){ let el=document.getElementById("netbar"); if(!el){ el=document.createElement("div"); el.id="netbar"; el.className="netbar"; (document.body||document.documentElement).appendChild(el); } return el; }
+function showNet(online){
+  const el=ensureNetbar();
+  if(online){
+    clearTimeout(_netOffT);
+    if(_netShownOff){ el.textContent="✓ Wieder verbunden – alles synchronisiert"; el.className="netbar ok show"; clearTimeout(_netHideT); _netHideT=setTimeout(()=>{ el.className="netbar"; }, 2000); _netShownOff=false; }
+  } else {
+    clearTimeout(_netOffT);
+    _netOffT=setTimeout(()=>{ el.textContent="⚠ Keine Verbindung – deine Eingaben werden gespeichert und automatisch nachgesendet."; el.className="netbar off show"; _netShownOff=true; }, 2500);
+  }
 }
 
 // Firebase-RTDB-Keys duerfen . # $ [ ] / NICHT enthalten. encodeURIComponent kodiert alle ausser
@@ -734,21 +763,21 @@ function saveTipsLS(){ try{ LS("wmt_tips", JSON.stringify(me.tips)); }catch(e){}
 function pushTip(id, val){
   if(players[MYPID] && players[MYPID].removed) return;   // entfernte/gesperrte Spieler tippen nicht
   me.tips[id]=val;
-  if(MODE==="fire"){ rref("players/"+MYPID+"/tips/"+id).set(val); }
+  if(MODE==="fire"){ rref("players/"+MYPID+"/tips/"+id).set(val).catch(()=>{}); }   // Offline-Writes queut das SDK + Reconnect-Resync sichert ab
   else { players[MYPID]={...(players[MYPID]||{}), name:me.name, tips:me.tips}; }
-  saveTipsLS();   // immer auch lokal sichern
+  saveTipsLS();   // immer auch lokal sichern (überlebt Reload, auch offline)
 }
 // Eigene GIF-Auswahl lesen/schreiben. Quelle der Wahrheit: players/<pid>/gif (fire) bzw. me.gif (Vorschau).
 function myGif(){ return gifValid((MODE==="fire")? (players[MYPID]&&players[MYPID].gif) : me.gif); }
 function setMyGif(id){
   id=gifValid(id);                                  // nur bekannte IDs, sonst "" (= keins)
   me.gif=id; LS("wmt_gif", id);
-  if(MODE==="fire"){ rref("players/"+MYPID+"/gif").set(id||null); }   // Leaf-Write: additiv, löscht nichts anderes
+  if(MODE==="fire"){ rref("players/"+MYPID+"/gif").set(id||null).catch(()=>{}); }   // Leaf-Write: additiv, löscht nichts anderes
   else { players[MYPID]={...(players[MYPID]||{name:me.name,tips:me.tips}), gif:id}; }
   renderBoard();
 }
-function setLock(v){ if(MODE==="fire") rref("state/locked").set(!!v); else { roomState.locked=v; renderAll(); } }
-function setClassPass(v){ const val=(v||"").trim(); if(MODE==="fire") rref("state/pass").set(val||null); else { roomState.pass=val||null; renderAll(); } }
+function setLock(v){ if(MODE==="fire") rref("state/locked").set(!!v).catch(()=>{}); else { roomState.locked=v; renderAll(); } }
+function setClassPass(v){ const val=(v||"").trim(); if(MODE==="fire") rref("state/pass").set(val||null).catch(()=>{}); else { roomState.pass=val||null; renderAll(); } }
 // Sanftes Entfernen: Spieler bleibt als Backup (removed:true), Tipps erhalten, Sperre-Phase startet jetzt.
 function kickPlayer(pid){
   const p=players[pid]; if(!p) return;
@@ -902,7 +931,7 @@ function setMyChamp(tk){
   if(MODE==="fire" && players[MYPID] && players[MYPID].removed) return;   // entfernte Spieler tippen nicht
   tk=champValid(tk);
   me.champ=tk; LS("wmt_champ", tk);
-  if(MODE==="fire"){ rref("players/"+MYPID+"/champ").set(tk||null); }   // Leaf-Write: additiv, löscht nichts anderes
+  if(MODE==="fire"){ rref("players/"+MYPID+"/champ").set(tk||null).catch(()=>{}); }   // Leaf-Write: additiv, löscht nichts anderes
   else { players[MYPID]={...(players[MYPID]||{name:me.name,tips:me.tips}), champ:tk}; }
   renderChampPick(); renderBoard();
 }
@@ -910,7 +939,7 @@ function setMyChamp(tk){
 function actualChampion(){ return champValid(roomState&&roomState.champion); }
 function setActualChampion(tk){
   tk=champValid(tk);
-  if(MODE==="fire"){ rref("state/champion").set(tk||null); } else { roomState.champion=tk||null; renderAll(); }
+  if(MODE==="fire"){ rref("state/champion").set(tk||null).catch(()=>{}); } else { roomState.champion=tk||null; renderAll(); }
 }
 
 let toastT; function toast(m,err){ const t=$("#toast"); t.textContent=m; t.className="toast show"+(err?" err":""); clearTimeout(toastT); toastT=setTimeout(()=>t.className="toast",2400); }
@@ -1012,7 +1041,7 @@ function buildGroups(box){
 // Tipp speichern + auf BEIDE Eingabe-Sätze spiegeln (Gruppen-Liste „tip-…" und Als-Nächstes-Karte „nx-…").
 function commitTip(id, hv, gv){
   if(MODE==="fire" && players[MYPID] && players[MYPID].removed) return;   // entfernte Spieler tippen nicht
-  if(hv===""&&gv===""){ delete me.tips[id]; if(MODE==="fire") rref("players/"+MYPID+"/tips/"+id).remove(); else if(players[MYPID]) players[MYPID].tips=me.tips; saveTipsLS(); }
+  if(hv===""&&gv===""){ delete me.tips[id]; if(MODE==="fire") rref("players/"+MYPID+"/tips/"+id).remove().catch(()=>{}); else if(players[MYPID]) players[MYPID].tips=me.tips; saveTipsLS(); }
   else { pushTip(id, hv+":"+gv); }   // speichert auch Teil-Tipps ("2:" / ":1") – Zwischenstand geht nie verloren
   mirrorTip(id); updateProgress(); flashSaved();
 }
@@ -1390,7 +1419,7 @@ let _renderQueued=false;
 function scheduleRender(){
   if(_renderQueued) return;
   _renderQueued=true;
-  const run=()=>{ _renderQueued=false; renderAll(); };
+  const run=()=>{ _renderQueued=false; try{ renderAll(); }catch(e){ console.error("Render-Fehler (ignoriert, App läuft weiter):", e); } };
   if(typeof requestAnimationFrame==="function") requestAnimationFrame(run); else setTimeout(run,16);
 }
 
