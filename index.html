@@ -203,6 +203,17 @@
   .champ-locked .flag-emo{font-size:34px; line-height:1; flex:none}
   .gifhead-cur .flagimg{display:inline-block; vertical-align:middle; width:27px; margin:0}
   .gifhead-cur .flag-emo{font-size:20px; line-height:1}
+  /* wehende Flagge (rein visuell, an bestimmte Spieler gebunden) – am linken "Mast" fixiert */
+  @keyframes flagwave{
+    0%   {transform:perspective(60px) rotateY(0deg)   skewY(0deg)}
+    20%  {transform:perspective(60px) rotateY(-12deg) skewY(1.2deg)}
+    40%  {transform:perspective(60px) rotateY(-4deg)  skewY(-1.2deg)}
+    60%  {transform:perspective(60px) rotateY(8deg)   skewY(1deg)}
+    80%  {transform:perspective(60px) rotateY(3deg)   skewY(-.8deg)}
+    100% {transform:perspective(60px) rotateY(0deg)   skewY(0deg)}
+  }
+  .flag-wave{animation:flagwave 1.5s ease-in-out infinite; transform-origin:left center; will-change:transform}
+  @media (prefers-reduced-motion:reduce){ .flag-wave{animation:none} }
   .champ-cur-nm{font-weight:800; font-size:12px; margin-left:7px; vertical-align:middle; text-transform:uppercase; letter-spacing:.03em}
   .champ-cur-empty{font-size:11px; color:var(--ink-soft); font-weight:700; text-transform:uppercase; letter-spacing:.05em}
   /* Nudge im Kopf, solange noch kein Weltmeister getippt wurde */
@@ -874,12 +885,13 @@ const FLAG_ISO = {
  france:"fr", senegal:"sn", iraq:"iq", norway:"no", argentina:"ar", algeria:"dz", austria:"at", jordan:"jo",
  portugal:"pt", drcongo:"cd", uzbekistan:"uz", colombia:"co", england:"gb-eng", croatia:"hr", ghana:"gh", panama:"pa"
 };
-function flagHTML(tk){
+function flagHTML(tk, cls){
+  const extra = cls ? (" "+cls) : "";   // optionale Zusatzklasse, z.B. "flag-wave"
   const iso=FLAG_ISO[tk];
-  if(!iso) return '<span class="flag-emo">'+flag(tk)+'</span>';
-  return '<img class="flagimg" src="https://flagcdn.com/w80/'+iso+'.png" srcset="https://flagcdn.com/w160/'+iso+'.png 2x" alt="'+esc(nameDE(tk))+'" loading="lazy" data-fb="'+flag(tk)+'" onerror="flagFallback(this)">';
+  if(!iso) return '<span class="flag-emo'+extra+'">'+flag(tk)+'</span>';
+  return '<img class="flagimg'+extra+'" src="https://flagcdn.com/w80/'+iso+'.png" srcset="https://flagcdn.com/w160/'+iso+'.png 2x" alt="'+esc(nameDE(tk))+'" loading="lazy" data-fb="'+flag(tk)+'" onerror="flagFallback(this)">';
 }
-function flagFallback(img){ try{ const s=document.createElement("span"); s.className="flag-emo"; s.textContent=img.dataset.fb||""; img.replaceWith(s); }catch(e){} }
+function flagFallback(img){ try{ const s=document.createElement("span"); s.className="flag-emo"; if(img.classList&&img.classList.contains("flag-wave")) s.classList.add("flag-wave"); s.textContent=img.dataset.fb||""; img.replaceWith(s); }catch(e){} }
 // WM-Start = Anpfiff des frühesten Spiels. null = Anstoßzeiten noch nicht geladen (dann noch offen).
 function wmStart(){ let min=null; for(const f of FIXTURES){ const kt=kickoffTime(f); if(kt!=null && (min==null||kt<min)) min=kt; } return min; }
 function champLocked(){ const s=wmStart(); return s!=null && Date.now()>=s; }
@@ -1115,6 +1127,9 @@ const SIGNATURE_GIFS = { "mrt": "gandalf" };   // Mr.T -> Gandalf
 function sigKey(name){ return String(name||"").trim().toLowerCase().replace(/[\s._\-]/g,""); }
 function signatureGif(name){ return SIGNATURE_GIFS[sigKey(name)] || ""; }
 const SIG_IDS = new Set(Object.values(SIGNATURE_GIFS));   // reservierte IDs: für Nicht-Besitzer ausblenden
+// Spieler mit "wehender" Weltmeister-Flagge (rein visuell per CSS, an den Spielnamen gebunden). Erweiterbar.
+const WAVE_FLAG_NAMES = new Set(["aö"]);   // AÖ -> seine Champ-Flagge weht
+function flagWaves(name){ return WAVE_FLAG_NAMES.has(sigKey(name)); }
 // Nur bekannte IDs zulassen – fremde/zukünftige Werte tolerant verwerfen (Vorwärts-Kompatibilität).
 function gifValid(id){ return (id && GIFBYID[id]) ? id : ""; }
 // Sticker als HTML: Cartoon-Clip wenn vorhanden, sonst animiertes Emoji (Fallback). "" wenn ID unbekannt.
@@ -1141,7 +1156,7 @@ function rankedPlayers(){
     const champBonus=champOk?CHAMP_BONUS:0;
     const sig=signatureGif(p.name);   // persönliches Signatur-GIF hat Vorrang; reservierte IDs für Nicht-Besitzer ausblenden
     const gif = sig || (SIG_IDS.has(gifValid(p.gif)) ? "" : gifValid(p.gif));
-    arr.push({pid, name:p.name, gif, sig:!!sig, ...base, champ:ch, champOk, champBonus, sum:base.sum+champBonus, me:pid===MYPID}); }
+    arr.push({pid, name:p.name, gif, sig:!!sig, wave:flagWaves(p.name), ...base, champ:ch, champOk, champBonus, sum:base.sum+champBonus, me:pid===MYPID}); }
   arr.sort((a,b)=> b.sum-a.sum||b.exakt-a.exakt||a.name.localeCompare(b.name));
   return arr;
 }
@@ -1159,7 +1174,7 @@ function renderBoard(){
       const medal=pos===1?"🥇":pos===2?"🥈":pos===3?"🥉":pos;
       const gifHtml=((r.sig || pos<=TOP_GIF) && r.gif)?`<div class="rank-gif${r.sig?' rank-gif-sig':''}">${gifSticker(r.gif)}</div>`:"";
       // Weltmeister-Tipp je Spieler anzeigen (Flagge + Land); stimmt er mit dem echten Sieger -> grün + Bonus.
-      const champLine=r.champ?`<div class="rank-champ${r.champOk?' ok':''}">🏆 ${flagHTML(r.champ)}<span class="rc-nm">${esc(nameDE(r.champ))}</span>${r.champOk?`<span class="rc-pts">+${CHAMP_BONUS}</span>`:''}</div>`:"";
+      const champLine=r.champ?`<div class="rank-champ${r.champOk?' ok':''}">🏆 ${flagHTML(r.champ, r.wave?"flag-wave":"")}<span class="rc-nm">${esc(nameDE(r.champ))}</span>${r.champOk?`<span class="rc-pts">+${CHAMP_BONUS}</span>`:''}</div>`:"";
       const row=document.createElement("div"); row.className="rank-row rank-"+pos+(r.me?" me":"");
       row.innerHTML=`<div class="rank-pos">${medal}</div>${gifHtml}
         <div class="rank-name">${esc(r.name)}${r.me?' <span class="pill">du</span>':''}<div class="sub">${r.exakt} exakt · ${r.getippt}/72 getippt</div>${champLine}</div>
@@ -1221,7 +1236,7 @@ function renderChampPick(){
   const head=$("#champHead"); if(head) head.setAttribute("aria-expanded", card.classList.contains("open")?"true":"false");
   card.classList.toggle("needtip", !mine && !locked);   // auffälliger Nudge, solange (vor WM-Start) noch kein Weltmeister getippt ist – verschwindet beim Tippen
   const hc=$("#champHeadCur");   // gewählten Tipp (Flagge + Name) bzw. Hinweis auch im eingeklappten Kopf zeigen
-  if(hc) hc.innerHTML = mine ? (flagHTML(mine)+'<span class="champ-cur-nm">'+esc(nameDE(mine))+'</span>')
+  if(hc) hc.innerHTML = mine ? (flagHTML(mine, flagWaves(me.name)?"flag-wave":"")+'<span class="champ-cur-nm">'+esc(nameDE(mine))+'</span>')
                              : (locked ? '<span class="champ-cur-empty">kein Tipp</span>'
                                        : '<span class="champ-cur-warn">⚠️ Noch nicht getippt!</span>');
   if(hint){
@@ -1244,7 +1259,7 @@ function renderChampPick(){
     body.dataset.built="";   // bei (theoretischem) Entsperren Grid neu bauen lassen
     if(mine){
       const ok=actual&&mine===actual, bad=actual&&mine!==actual;
-      body.innerHTML='<div class="champ-locked'+(ok?' good':bad?' miss':'')+'">'+flagHTML(mine)+'<span class="nm">'+esc(nameDE(mine))+'</span>'
+      body.innerHTML='<div class="champ-locked'+(ok?' good':bad?' miss':'')+'">'+flagHTML(mine, flagWaves(me.name)?"flag-wave":"")+'<span class="nm">'+esc(nameDE(mine))+'</span>'
         +(ok?'<span class="champ-tag good">✅ +'+CHAMP_BONUS+'</span>':bad?'<span class="champ-tag miss">daneben</span>':'<span class="champ-tag">gesperrt 🔒</span>')+'</div>';
     } else {
       body.innerHTML='<div class="tiny">Kein Weltmeister-Tipp abgegeben.</div>';
