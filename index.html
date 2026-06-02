@@ -1128,7 +1128,7 @@ function sigKey(name){ return String(name||"").trim().toLowerCase().replace(/[\s
 function signatureGif(name){ return SIGNATURE_GIFS[sigKey(name)] || ""; }
 const SIG_IDS = new Set(Object.values(SIGNATURE_GIFS));   // reservierte IDs: für Nicht-Besitzer ausblenden
 // Spieler mit "wehender" Weltmeister-Flagge (rein visuell per CSS, an den Spielnamen gebunden). Erweiterbar.
-const WAVE_FLAG_NAMES = new Set(["aö"]);   // AÖ -> seine Champ-Flagge weht
+const WAVE_FLAG_NAMES = new Set(["aö","aö44"]);   // AÖ / AÖ44 -> seine (Türkei-)Champ-Flagge weht
 function flagWaves(name){ return WAVE_FLAG_NAMES.has(sigKey(name)); }
 // Nur bekannte IDs zulassen – fremde/zukünftige Werte tolerant verwerfen (Vorwärts-Kompatibilität).
 function gifValid(id){ return (id && GIFBYID[id]) ? id : ""; }
