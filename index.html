@@ -665,6 +665,10 @@ async function ensureRoom(){
 }
 
 let _wasOnline=false;
+// Server-korrigierte Zeit gegen falsch gestellte Handy-Uhren. offset kommt von Firebase (.info/serverTimeOffset);
+// default 0 -> bis dahin identisch zu Date.now(). ALLE Sperr-/Countdown-Entscheidungen nutzen now() statt Date.now().
+let serverTimeOffset=0;
+function now(){ return Date.now()+serverTimeOffset; }
 function attachListeners(){
   rref("players").on("value", s=>{ players=s.val()||{};
     // Beim ERSTEN Sync Server-Tipps mit den lokalen mergen – LOKAL gewinnt bei Konflikt (dieses Gerät ist Autor
@@ -680,6 +684,8 @@ function attachListeners(){
     scheduleRender(); refreshTabs(); });
   // Verbindungs-Resilienz: Banner bei Abbruch + bei Re-Connect lokale Tipps nachsenden (flaches Klassen-WLAN).
   try{ db.ref(".info/connected").on("value", s=>{ const on=s.val()===true; showNet(on); if(on && _wasOnline===false && hydrated) resyncTips(); _wasOnline=on; }); }catch(e){}
+  // Server-Zeit-Offset laden -> faire, geräteunabhängige Anpfiff-Sperre; nach Eintreffen einmal neu rendern.
+  try{ db.ref(".info/serverTimeOffset").on("value", s=>{ const o=s.val(); if(typeof o==="number" && isFinite(o)){ serverTimeOffset=o; scheduleRender(); } }); }catch(e){}
 }
 // Lokale Tipps in den Server spiegeln (idempotenter Merge) – sichert gegen stillen Verlust bei WLAN-Abbruch/Reload.
 function resyncTips(){
@@ -880,7 +886,7 @@ function kickoffTime(f){ const m=fixMeta[f.id]; if(!m||!m.date) return null; try
   const [y,mo,d]=m.date.split("-").map(Number);
   return Date.UTC(y,mo-1,d,+tm[1],+tm[2])-off*3600000;
 }catch(e){ return null; } }
-function kickoffPassed(f){ const kt=kickoffTime(f); return kt!=null && Date.now()>=kt; }
+function kickoffPassed(f){ const kt=kickoffTime(f); return kt!=null && now()>=kt; }
 let fixMeta={};  // id -> {date,time,round} aus openfootball (optional)
 const NEXT_COUNT = 3;   // wie viele kommende Spiele die „Als Nächstes"-Karte zeigt
 // Die nächsten n Spiele mit bekanntem, noch zukünftigem Anpfiff (chronologisch). Rein funktional -> testbar.
@@ -890,7 +896,7 @@ function nextFixtures(list, nowMs, n){
 // Restzeit bis Anpfiff als kurzer Text (für den Live-Countdown).
 function untilStr(kt){
   if(kt==null) return "";
-  const d=kt-Date.now(); if(d<=0) return "gleich";
+  const d=kt-now(); if(d<=0) return "gleich";
   const min=Math.floor(d/60000), h=Math.floor(min/60), days=Math.floor(h/24);
   if(days>=1) return "in "+days+" Tag"+(days>1?"en":"");
   if(h>=1) return "in "+h+" Std "+(min%60)+" Min";
@@ -923,7 +929,7 @@ function flagHTML(tk, cls){
 function flagFallback(img){ try{ const s=document.createElement("span"); s.className="flag-emo"; if(img.classList&&img.classList.contains("flag-wave")) s.classList.add("flag-wave"); s.textContent=img.dataset.fb||""; img.replaceWith(s); }catch(e){} }
 // WM-Start = Anpfiff des frühesten Spiels. null = Anstoßzeiten noch nicht geladen (dann noch offen).
 function wmStart(){ let min=null; for(const f of FIXTURES){ const kt=kickoffTime(f); if(kt!=null && (min==null||kt<min)) min=kt; } return min; }
-function champLocked(){ const s=wmStart(); return s!=null && Date.now()>=s; }
+function champLocked(){ const s=wmStart(); return s!=null && now()>=s; }
 // Eigener Weltmeister-Tipp (Quelle: players/<pid>/champ in fire, sonst me.champ).
 function myChamp(){ return champValid((MODE==="fire")? (players[MYPID]&&players[MYPID].champ) : me.champ); }
 function setMyChamp(tk){
@@ -1062,7 +1068,7 @@ function updateProgress(){
 // „Als Nächstes": die nächsten Spiele mit Live-Countdown, direkt tippbar (synchron mit der Gruppen-Liste).
 function renderNext(){
   const list=$("#nextList"); if(!list) return;
-  const up=nextFixtures(FIXTURES, Date.now(), NEXT_COUNT);
+  const up=nextFixtures(FIXTURES, now(), NEXT_COUNT);
   if(!up.length){
     const haveTimes=FIXTURES.some(f=>kickoffTime(f)!=null);
     list.innerHTML='<div class="tiny">'+(haveTimes?'Keine kommenden Spiele – das Turnier läuft oder ist vorbei.':'⏳ Anstoßzeiten werden geladen …')+'</div>';
