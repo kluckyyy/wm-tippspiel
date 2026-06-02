@@ -174,6 +174,13 @@
   .gifclip video{width:26px; height:26px; object-fit:contain; vertical-align:middle; border-radius:6px; display:block}
   .rank-gif .gifclip video{width:28px; height:28px}
   .gifopt .gifclip video{width:38px; height:38px}
+  /* Bild-Clips (animierte GIF/PNG, z.B. persönliche Signatur) – Querformat zulassen, nicht quadratisch beschneiden */
+  .gifclip img{height:26px; width:auto; max-width:54px; object-fit:contain; vertical-align:middle; border-radius:6px; display:block}
+  .rank-gif .gifclip img{height:30px; max-width:64px}
+  .gifhead-cur .gifclip img{height:24px; max-width:52px}
+  /* persönliches Signatur-GIF darf neben dem Namen etwas breiter/größer sein als die normale 30px-Spalte */
+  .rank-gif.rank-gif-sig{width:auto; min-width:30px}
+  .rank-gif.rank-gif-sig .gifclip img{height:34px; max-width:76px}
 
   /* Weltmeister-Tipp – Team-Chips & gesperrte Ansicht */
   .champgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(86px,1fr)); gap:9px; margin-top:4px}
@@ -358,12 +365,12 @@
     </div>
     <div class="card hidden gifcard" id="gifCard">
       <div class="gifhead" id="gifHead" role="button" tabindex="0" aria-expanded="false" aria-controls="gifBody">
-        <h2>🎉 Dein Jubel-GIF</h2>
+        <h2 id="gifTitle">🎉 Dein Jubel-GIF</h2>
         <span class="gifhead-cur" id="gifHeadCur"></span>
         <span class="arrow">▾</span>
       </div>
       <div class="gifbody" id="gifBody">
-        <p class="hint">Du bist in den <b>Top 10</b> – such dir ein Jubel-GIF oder einen lustigen Fail aus! Es erscheint <b>neben deinem Namen</b> in der Rangliste. Antippen zum Wählen, nochmal auf „keins" zum Entfernen.</p>
+        <p class="hint" id="gifIntro">Du bist in den <b>Top 10</b> – such dir ein Jubel-GIF oder einen lustigen Fail aus! Es erscheint <b>neben deinem Namen</b> in der Rangliste. Antippen zum Wählen, nochmal auf „keins" zum Entfernen.</p>
         <div id="gifPicker"></div>
       </div>
     </div>
@@ -1092,7 +1099,9 @@ const GIFS = [
   { id:"clown",     emoji:"🤡",  label:"Clown-Aktion",    cat:"fail",  anim:"wobble" },
   { id:"facepalm",  emoji:"🤦",  label:"Oh nein…",        cat:"fail",  anim:"shake" },
   { id:"dog",       emoji:"🐕",  label:"Hund auf'm Platz",cat:"fail",  anim:"bounce" },
-  { id:"pigeon",    emoji:"🐦",  label:"Taube am Ball",   cat:"fail",  anim:"bounce" }
+  { id:"pigeon",    emoji:"🐦",  label:"Taube am Ball",   cat:"fail",  anim:"bounce" },
+  // 🧙 Persönliche Signatur-GIFs (cat:"signature" -> erscheinen NICHT im normalen Picker; nur fest an einen Namen gebunden)
+  { id:"gandalf",   img:"gandalf.gif",                    label:"Gandalf",         cat:"signature" }
 ];
 const GIFBYID = {}; GIFS.forEach(g=>GIFBYID[g.id]=g);
 const TOP_GIF = 10;   // ab welcher Rang-Grenze ein GIF wählbar/sichtbar ist
@@ -1100,11 +1109,21 @@ const TOP_GIF = 10;   // ab welcher Rang-Grenze ein GIF wählbar/sichtbar ist
 // dann zeigt der Sticker den Loop-Clip statt des Emojis. Leer = überall Emoji (additiv, nichts geht kaputt).
 const CLIPS_BASE = "cartoon-clips/web/";
 const CLIP_IDS = new Set(["trophy"]);
+// Persönliche Signatur-GIFs: fest an EINEN Spielnamen gebunden, immer sichtbar (auch außerhalb Top 10), exklusiv – niemand sonst kann sie wählen/bekommen.
+// Schlüssel = normalisierter Name (klein, ohne Punkt/Leerzeichen/Bindestrich). Wert = GIF-ID aus GIFS oben.
+const SIGNATURE_GIFS = { "mrt": "gandalf" };   // Mr.T -> Gandalf
+function sigKey(name){ return String(name||"").trim().toLowerCase().replace(/[\s._\-]/g,""); }
+function signatureGif(name){ return SIGNATURE_GIFS[sigKey(name)] || ""; }
+const SIG_IDS = new Set(Object.values(SIGNATURE_GIFS));   // reservierte IDs: für Nicht-Besitzer ausblenden
 // Nur bekannte IDs zulassen – fremde/zukünftige Werte tolerant verwerfen (Vorwärts-Kompatibilität).
 function gifValid(id){ return (id && GIFBYID[id]) ? id : ""; }
 // Sticker als HTML: Cartoon-Clip wenn vorhanden, sonst animiertes Emoji (Fallback). "" wenn ID unbekannt.
 function gifSticker(id){
   const g=GIFBYID[gifValid(id)]; if(!g) return "";
+  if(g.img){   // animiertes Bild (GIF/PNG) aus dem Repo – z.B. persönliche Signatur
+    return '<span class="gifst gifclip" role="img" aria-label="'+esc(g.label)+'" title="'+esc(g.label)+'">'
+      +'<img src="'+CLIPS_BASE+g.img+'" alt="'+esc(g.label)+'" loading="lazy"></span>';
+  }
   if(CLIP_IDS.has(g.id)){
     return '<span class="gifst gifclip" role="img" aria-label="'+esc(g.label)+'" title="'+esc(g.label)+'">'
       +'<video src="'+CLIPS_BASE+g.id+'.mp4" autoplay loop muted playsinline preload="auto"></video></span>';
@@ -1120,7 +1139,9 @@ function rankedPlayers(){
     const base=totalFor(p.tips||{}, results, p.susp||[], kickoffTime);
     const ch=champValid(p.champ), champOk=!!(ch && champ && ch===champ);   // Weltmeister-Bonus, sobald der echte Sieger gesetzt ist
     const champBonus=champOk?CHAMP_BONUS:0;
-    arr.push({pid, name:p.name, gif:gifValid(p.gif), ...base, champ:ch, champOk, champBonus, sum:base.sum+champBonus, me:pid===MYPID}); }
+    const sig=signatureGif(p.name);   // persönliches Signatur-GIF hat Vorrang; reservierte IDs für Nicht-Besitzer ausblenden
+    const gif = sig || (SIG_IDS.has(gifValid(p.gif)) ? "" : gifValid(p.gif));
+    arr.push({pid, name:p.name, gif, sig:!!sig, ...base, champ:ch, champOk, champBonus, sum:base.sum+champBonus, me:pid===MYPID}); }
   arr.sort((a,b)=> b.sum-a.sum||b.exakt-a.exakt||a.name.localeCompare(b.name));
   return arr;
 }
@@ -1136,7 +1157,7 @@ function renderBoard(){
       if(r.sum!==ls||r.exakt!==le){pos=i+1;ls=r.sum;le=r.exakt;}
       if(r.me) myPos=pos;
       const medal=pos===1?"🥇":pos===2?"🥈":pos===3?"🥉":pos;
-      const gifHtml=(pos<=TOP_GIF && r.gif)?`<div class="rank-gif">${gifSticker(r.gif)}</div>`:"";
+      const gifHtml=((r.sig || pos<=TOP_GIF) && r.gif)?`<div class="rank-gif${r.sig?' rank-gif-sig':''}">${gifSticker(r.gif)}</div>`:"";
       // Weltmeister-Tipp je Spieler anzeigen (Flagge + Land); stimmt er mit dem echten Sieger -> grün + Bonus.
       const champLine=r.champ?`<div class="rank-champ${r.champOk?' ok':''}">🏆 ${flagHTML(r.champ)}<span class="rc-nm">${esc(nameDE(r.champ))}</span>${r.champOk?`<span class="rc-pts">+${CHAMP_BONUS}</span>`:''}</div>`:"";
       const row=document.createElement("div"); row.className="rank-row rank-"+pos+(r.me?" me":"");
@@ -1148,19 +1169,29 @@ function renderBoard(){
   }
   // Jubel-GIF-Picker: nur für mitspielende, nicht-entfernte Personen; freigeschaltet ab Top 10.
   const amPlayer = !!(me.name && me.name.trim()) && !(MODE==="fire" && players[MYPID] && players[MYPID].removed);
-  const canPick = amPlayer && myPos!=null && myPos<=TOP_GIF;
-  const gc=$("#gifCard"), gl=$("#gifLockCard");
+  const mySig = amPlayer ? signatureGif(me.name) : "";   // habe ich ein persönliches Signatur-GIF? -> feste Anzeige statt Auswahl
+  const canPick = !mySig && amPlayer && myPos!=null && myPos<=TOP_GIF;
+  const gc=$("#gifCard"), gl=$("#gifLockCard"), gt=$("#gifTitle"), gi=$("#gifIntro"), gp=$("#gifPicker");
   if(gc){
-    gc.classList.toggle("hidden", !canPick);
-    if(canPick){
+    gc.classList.toggle("hidden", !(canPick || mySig));
+    if(mySig){   // Signatur-Besitzer: festes GIF, kein Picker, keine Top-10-Sperre
+      if(!gc.dataset.init){ gc.classList.toggle("open", LS("wmt_gifopen")==="1"); gc.dataset.init="1"; }
+      const head=$("#gifHead"); if(head) head.setAttribute("aria-expanded", gc.classList.contains("open")?"true":"false");
+      if(gt) gt.textContent="🧙 Dein Signatur-GIF";
+      if(gi) gi.innerHTML='Das hier ist <b>dein persönliches Signatur-GIF</b> – es wackelt <b>immer</b> neben deinem Namen, egal auf welchem Platz du stehst. <b>Nur du</b> hast es.';
+      const hc=$("#gifHeadCur"); if(hc) hc.innerHTML=gifSticker(mySig);
+      if(gp) gp.innerHTML='<div class="gifpick" style="grid-template-columns:none; max-width:120px"><div class="gifopt sel" style="cursor:default; height:auto; padding:12px">'+gifSticker(mySig)+'</div></div>';
+    } else if(canPick){
       if(!gc.dataset.init){ gc.classList.toggle("open", LS("wmt_gifopen")==="1"); gc.dataset.init="1"; }   // erstmals: Zustand aus LS, default zugeklappt
       const head=$("#gifHead"); if(head) head.setAttribute("aria-expanded", gc.classList.contains("open")?"true":"false");
+      if(gt) gt.textContent="🎉 Dein Jubel-GIF";
+      if(gi) gi.innerHTML='Du bist in den <b>Top 10</b> – such dir ein Jubel-GIF oder einen lustigen Fail aus! Es erscheint <b>neben deinem Namen</b> in der Rangliste. Antippen zum Wählen, nochmal auf „keins" zum Entfernen.';
       const cur=myGif(), hc=$("#gifHeadCur");                                                               // gewähltes GIF auch im eingeklappten Kopf zeigen
       if(hc) hc.innerHTML = cur ? gifSticker(cur) : '<span style="font-size:11px;color:var(--ink-soft);font-weight:700;text-transform:uppercase;letter-spacing:.05em">antippen</span>';
       renderGifPicker();
     }
   }
-  if(gl) gl.classList.toggle("hidden", !(amPlayer && !canPick));
+  if(gl) gl.classList.toggle("hidden", !(amPlayer && !canPick && !mySig));
 }
 function renderGifPicker(){
   const box=$("#gifPicker"); if(!box) return;
