@@ -469,6 +469,7 @@
 <!-- Firebase (compat) + QR -->
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 
 <script>
@@ -638,6 +639,20 @@ function initFirebase(){
   if(!configOk() || typeof firebase==="undefined"){ MODE="local"; return false; }
   try{ firebase.initializeApp(FIREBASE_CONFIG); db=firebase.database(); MODE="fire"; fbOk=true; return true; }
   catch(e){ MODE="local"; return false; }
+}
+// Unsichtbares Anonymous-Token holen (KEIN Login-UI – Kinder merken nichts). Macht `auth != null`-Regeln möglich,
+// sodass nur echte App-Clients an die DB dürfen. Blockiert die App NIE: resolved bei Token, bei Fehler (Provider
+// noch aus -> Regeln noch offen) oder spätestens nach 3 s. So bleibt die App in jeder Übergangsphase funktionsfähig.
+function ensureAuth(){
+  return new Promise(resolve=>{
+    if(MODE!=="fire" || typeof firebase==="undefined" || typeof firebase.auth!=="function"){ resolve(); return; }
+    let done=false; const fin=()=>{ if(done) return; done=true; resolve(); };
+    try{
+      firebase.auth().onAuthStateChanged(u=>{ if(u) fin(); });
+      firebase.auth().signInAnonymously().catch(()=>fin());   // Provider evtl. noch aus -> trotzdem weiter
+    }catch(e){ fin(); }
+    setTimeout(fin, 3000);   // Fallback: nie länger als 3 s warten
+  });
 }
 
 function genId(n){ let s=""; const c="abcdefghjkmnpqrstuvwxyz23456789"; for(let i=0;i<n;i++) s+=c[Math.floor(Math.random()*c.length)]; return s; }
@@ -1589,6 +1604,7 @@ $("#copyAdmin").addEventListener("click",async()=>toast(await copyText($("#admin
   // Admin? token in URL ODER lokal gemerkt
   if(ADMINTOKEN) ADMIN=true;
   initFirebase();
+  await ensureAuth();   // unsichtbares Anonymous-Token holen, BEVOR Raum angelegt/gelesen wird (auth!=null-Regeln)
   let justCreated=false;
   if(MODE==="fire"){
     const stored = ROOM ? LS("wmt_admin_"+ROOM) : null;
