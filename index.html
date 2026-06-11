@@ -128,6 +128,29 @@
   .rank-live .rl-no{color:var(--ink-soft); font-family:var(--font-body); font-weight:800; font-size:13px}
   @keyframes livepulse{0%,100%{opacity:1; transform:scale(1)} 50%{opacity:.35; transform:scale(.65)}}
   @media (prefers-reduced-motion: reduce){ .rank-live .rl-dot{animation:none} }
+  /* Auflösung: Endstand + Tipp + Punkte des zuletzt beendeten Spiels (bis zum nächsten Anpfiff) */
+  .rank-recap{display:flex; flex-wrap:wrap; align-items:center; gap:5px 8px; min-width:0; margin-top:5px}
+  .rank-recap .rc-r{display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:800; color:var(--ink); background:var(--paper); border:2px solid var(--ink); border-radius:999px; padding:2px 9px; max-width:100%}
+  .rank-recap .rc-r.hit{background:#E7F3EC; border-color:var(--green); color:var(--green-deep)}
+  .rank-recap .rc-r.exact{background:var(--green); border-color:var(--green); color:var(--cream)}
+  .rank-recap .flagimg{width:17px; flex:none} .rank-recap .flag-emo{font-size:13px; flex:none}
+  .rank-recap .rc-end{font-family:var(--font-display); font-weight:400; font-size:14px; letter-spacing:.02em}
+  .rank-recap .rc-tip{font-weight:700; text-transform:uppercase; letter-spacing:.03em; font-size:10.5px; opacity:.85}
+  .rank-recap .rc-skip{font-weight:800; opacity:.7}
+  .rank-recap .rc-pt{font-family:var(--font-display); font-weight:400; font-size:14px; flex:none}
+  .rank-recap .rc-r.miss{opacity:.72} .rank-recap .rc-r.miss .rc-pt{opacity:.6}
+  /* Lehrer: manuelle Ergebnis-Eingabe */
+  .res-row{display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:6px 12px; padding:9px 0; border-bottom:1.5px dashed var(--paper-deep)}
+  .res-row:last-of-type{border-bottom:0}
+  .res-teams{display:flex; align-items:center; gap:6px}
+  .res-teams .flagimg{width:22px; flex:none} .res-teams .flag-emo{font-size:17px; flex:none}
+  .res-in{width:38px; text-align:center; font-family:var(--font-display); font-weight:400; font-size:18px; padding:4px 2px; border:2px solid var(--ink); border-radius:7px; background:var(--paper)}
+  .res-in:focus{outline:none; border-color:var(--vermilion); background:#fff}
+  .res-colon{font-weight:800; font-size:16px}
+  .res-meta{display:flex; align-items:center; gap:8px; font-size:11px}
+  .res-nm{font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.03em}
+  .res-src{font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; border:2px solid currentColor; white-space:nowrap}
+  .res-src.ov{color:var(--green)} .res-src.auto{color:var(--ink-soft)} .res-src.none{color:var(--vermilion)}
 
   /* Jubel-GIFs & Fails (Top-10-Belohnung) – kuratierte, selbst-animierte Sticker (kindgerecht, offline, keine Fremd-Links).
      Klassen sind nach BEWEGUNG benannt (nicht pro Sticker), damit viele Emojis dieselbe Animation teilen. */
@@ -467,8 +490,10 @@
     <div class="card">
       <h2>⚽ Ergebnisse</h2>
       <p class="hint"><span class="statusdot" id="resDot"></span><span id="resStatus">Ergebnisse werden automatisch geladen.</span></p>
-      <p class="tiny">Die Endstände zieht die App automatisch aus offenen WM-Daten und wertet sie für alle –
-        <b>du musst nichts eintragen</b>. Nach Anpfiff eines Spiels ist das Tippen dafür gesperrt.</p>
+      <p class="tiny">Die App zieht Endstände automatisch aus offenen WM-Daten – die <b>kostenlose Quelle ist aber oft
+        Stunden verspätet</b>. Damit die Auflösung sofort läuft, kannst du den Endstand hier <b>selbst eintragen</b>;
+        deine Eingabe gilt sofort für alle und hat Vorrang. Leer lassen = wieder Automatik.</p>
+      <div id="resAdmin"></div>
     </div>
   </section>
 </main>
@@ -631,7 +656,10 @@ let MYPID = LS("wmt_pid"); if(!MYPID){ MYPID="p"+Math.random().toString(36).slic
 let me = { name: LS("wmt_name")||"", tips: loadTipsLS(), gif: LS("wmt_gif")||"", champ: LS("wmt_champ")||"" };
 let players = {};            // pid -> {name,tips}
 let roomState = { locked:false };
-let results = {};            // fixtureId -> [h,g]
+let results = {};            // fixtureId -> [h,g]  (effektiv: Auto-Quelle + manuelle Overrides; Override gewinnt)
+let autoResults = {};        // nur die automatisch geladenen Endstände (openfootball) – ohne Overrides
+// Effektive Ergebnisse neu zusammensetzen: Auto-Quelle als Basis, Lehrer-Overrides (state/overrides) on top.
+function recomputeResults(){ results = Object.assign({}, autoResults, manualOverrides()); }
 let db=null, fbOk=false, hydrated=false;
 
 /* ---- URL: #r=ROOM&a=TOKEN ---- */
@@ -706,6 +734,7 @@ function attachListeners(){
     // Admin-Rolle gegen den echten Token verifizieren: passt der Token -> Admin, sonst KEIN Admin
     // (verhindert, dass ein falscher/geratener #...&a=-Wert die Lehrer-UI freischaltet).
     if(roomState.adminToken) ADMIN=(ADMINTOKEN===roomState.adminToken);
+    recomputeResults();   // ein neuer/geänderter Lehrer-Override (state/overrides) wirkt sofort auf ALLEN Geräten
     scheduleRender(); refreshTabs(); });
   // Verbindungs-Resilienz: Banner bei Abbruch + bei Re-Connect lokale Tipps nachsenden (flaches Klassen-WLAN).
   try{ db.ref(".info/connected").on("value", s=>{ const on=s.val()===true; showNet(on); if(on && _wasOnline===false && hydrated) resyncTips(); _wasOnline=on; }); }catch(e){}
@@ -809,6 +838,23 @@ function setMyGif(id){
 }
 function setLock(v){ if(MODE==="fire") rref("state/locked").set(!!v).catch(()=>{}); else { roomState.locked=v; renderAll(); } }
 function setClassPass(v){ const val=(v||"").trim(); if(MODE==="fire") rref("state/pass").set(val||null).catch(()=>{}); else { roomState.pass=val||null; renderAll(); } }
+// Manuelles Ergebnis (Lehrer): vollständige Eingabe -> Override state/overrides/<fid>="h:g" (gewinnt über Auto-Quelle);
+// leere/unvollständige Eingabe -> Override entfernen (zurück zur Auto-Quelle). Greift via state-Listener sofort bei allen.
+function setOverride(fid, h, g){
+  if(!FIXBYID[fid]) return;
+  const hh=String(h==null?"":h).replace(/[^0-9]/g,"").slice(0,2);
+  const gg=String(g==null?"":g).replace(/[^0-9]/g,"").slice(0,2);
+  const val=(hh!==""&&gg!=="")? (hh+":"+gg) : null;
+  if(MODE==="fire"){
+    const ref=rref("state/overrides/"+fid);
+    (val? ref.set(val) : ref.remove()).catch(()=>{});
+    // lokal sofort spiegeln, damit die Auflösung ohne Roundtrip-Wartezeit erscheint (state-Listener bestätigt gleich)
+    roomState.overrides=roomState.overrides||{}; if(val) roomState.overrides[fid]=val; else delete roomState.overrides[fid];
+  } else {
+    roomState.overrides=roomState.overrides||{}; if(val) roomState.overrides[fid]=val; else delete roomState.overrides[fid];
+  }
+  recomputeResults(); renderAll();
+}
 // Sanftes Entfernen: Spieler bleibt als Backup (removed:true), Tipps erhalten, Sperre-Phase startet jetzt.
 function kickPlayer(pid){
   const p=players[pid]; if(!p) return;
@@ -866,12 +912,13 @@ async function pollResults(){
     const r=await fetch(RESULTS_URL,{cache:"no-store"});
     if(!r.ok) throw new Error("HTTP "+r.status);
     const j=await r.json();
-    results=Object.assign(parseResults(j), manualOverrides());
-    setResStatus(true, Object.keys(results).length);
+    autoResults=parseResults(j);
+    recomputeResults();
+    setResStatus(true, Object.keys(autoResults).length);
     renderAll();
   }catch(e){
-    results=Object.assign({}, manualOverrides());
-    setResStatus(false, Object.keys(results).length);
+    recomputeResults();   // Auto-Quelle nicht erreichbar -> letzte Auto-Werte + Overrides behalten
+    setResStatus(false, Object.keys(autoResults).length);
     renderAll();
   }
 }
@@ -943,6 +990,17 @@ function liveFixtures(){
     if(t>=kt && t<kt+LIVE_WINDOW_MS) out.push({f,kt});
   }
   return out.sort((a,b)=>a.kt-b.kt).map(x=>x.f);
+}
+
+// „Auflösung": das zuletzt beendete Spiel (spätester Anpfiff MIT Ergebnis) – wird gezeigt, solange GERADE KEIN Spiel
+// läuft. Sobald das nächste Spiel anpfeift (liveFixtures nicht leer), verschwindet die Auflösung -> „bis zum nächsten
+// Spiel". Am letzten Gruppentag können 2 Spiele exakt parallel enden -> beide. Rein funktional -> testbar.
+function recapFixtures(){
+  if(liveFixtures().length) return [];   // es läuft ein Spiel -> dessen Live-Tipp übernimmt, keine Auflösung mehr
+  let maxKt=null;
+  for(const f of FIXTURES){ if(!results[f.id]) continue; const kt=kickoffTime(f); if(kt==null) continue; if(maxKt==null||kt>maxKt) maxKt=kt; }
+  if(maxKt==null) return [];             // noch kein Spiel mit Ergebnis
+  return FIXTURES.filter(f=>results[f.id] && kickoffTime(f)===maxKt).sort((a,b)=> a.id<b.id?-1:1);
 }
 
 /* ================= WELTMEISTER-TIPP (Extrapunkte) =================
@@ -1086,6 +1144,9 @@ function buildGroups(box){
 // Tipp speichern + auf BEIDE Eingabe-Sätze spiegeln (Gruppen-Liste „tip-…" und Als-Nächstes-Karte „nx-…").
 function commitTip(id, hv, gv){
   if(MODE==="fire" && players[MYPID] && players[MYPID].removed) return;   // entfernte Spieler tippen nicht
+  const f=FIXBYID[id];
+  if(f && isLocked(f)) return;   // FAIRNESS: nach Anpfiff/Ergebnis NICHT mehr tippbar (echte Sperre, nicht nur die UI-disabled);
+                                 // erst wenn ein Spiel gesperrt ist, wird sein Tipp für andere sichtbar -> kein Abschreiben.
   if(hv===""&&gv===""){ delete me.tips[id]; if(MODE==="fire") rref("players/"+MYPID+"/tips/"+id).remove().catch(()=>{}); else if(players[MYPID]) players[MYPID].tips=me.tips; saveTipsLS(); }
   else { pushTip(id, hv+":"+gv); }   // speichert auch Teil-Tipps ("2:" / ":1") – Zwischenstand geht nie verloren
   mirrorTip(id); updateProgress(); flashSaved();
@@ -1228,6 +1289,7 @@ function rankedPlayers(){
   const src = (MODE==="fire")? players : (me.name? {[MYPID]:{name:me.name,tips:me.tips}} : {});
   const champ=actualChampion();
   const live=liveFixtures();   // gerade laufende Spiele – für alle Spieler gleich, Tipp je Person unterschiedlich
+  const recap=recapFixtures();   // zuletzt beendetes Spiel (Auflösung), solange kein neues läuft
   for(const pid in src){ const p=src[pid]; if(!p||!p.name||p.removed) continue;   // entfernte Spieler nicht werten/zeigen
     const base=totalFor(p.tips||{}, results, p.susp||[], kickoffTime);
     const ch=champValid(p.champ), champOk=!!(ch && champ && ch===champ);   // Weltmeister-Bonus, sobald der echte Sieger gesetzt ist
@@ -1235,7 +1297,8 @@ function rankedPlayers(){
     const sig=signatureGif(p.name);   // persönliches Signatur-GIF hat Vorrang; reservierte IDs für Nicht-Besitzer ausblenden
     const gif = sig || (SIG_IDS.has(gifValid(p.gif)) ? "" : gifValid(p.gif));
     const liveTips = live.map(f=>({ id:f.id, heim:f.heim, gast:f.gast, tip:(p.tips&&p.tips[f.id])||"" }));   // Tipp dieser Person fürs laufende Spiel
-    arr.push({pid, name:p.name, gif, sig:!!sig, wave:flagWaves(p.name), ...base, champ:ch, champOk, champBonus, sum:base.sum+champBonus, me:pid===MYPID, live:liveTips}); }
+    const recapTips = recap.map(f=>{ const tip=(p.tips&&p.tips[f.id])||""; return { id:f.id, heim:f.heim, gast:f.gast, res:results[f.id], tip, real:!!parseTip(tip), pts:pointsFor(tip, results[f.id]) }; });   // Auflösung: Tipp + Punkte fürs zuletzt beendete Spiel
+    arr.push({pid, name:p.name, gif, sig:!!sig, wave:flagWaves(p.name), ...base, champ:ch, champOk, champBonus, sum:base.sum+champBonus, me:pid===MYPID, live:liveTips, recap:recapTips}); }
   arr.sort((a,b)=> b.sum-a.sum||b.exakt-a.exakt||a.name.localeCompare(b.name));
   return arr;
 }
@@ -1252,7 +1315,10 @@ function renderBoard(){
   // Live-Tipp gehört in die Signatur (sonst erschiene/verschwände die Zeile bei An-/Abpfiff nicht). Tipps sind während
   // des laufenden Spiels gesperrt -> der String ändert sich nur an den Spielgrenzen, kein Dauer-Rebuild.
   const liveSigOf = r => r.live.map(l=>l.id+"="+l.tip).join(",");
-  const bsig = arr.length ? rows.map(({r,pos})=>pos+":"+r.pid+":"+r.sum+":"+r.exakt+":"+(r.gif||"")+":"+(r.champ||"")+":"+(r.champOk?1:0)+":"+(r.me?1:0)+":"+r.name+":"+liveSigOf(r)).join("|") : "EMPTY";
+  // Auflösung gehört ebenfalls in die Signatur (Endstand + Punkte je Person) -> erscheint/verschwindet sauber bei
+  // Eintrag/Spielwechsel, sonst kein Rebuild (Punkte sind nach Spielende fix).
+  const recapSigOf = r => r.recap.map(c=>c.id+"="+(c.res?c.res.join("-"):"")+":"+c.pts+(c.real?"r":"n")).join(",");
+  const bsig = arr.length ? rows.map(({r,pos})=>pos+":"+r.pid+":"+r.sum+":"+r.exakt+":"+(r.gif||"")+":"+(r.champ||"")+":"+(r.champOk?1:0)+":"+(r.me?1:0)+":"+r.name+":"+liveSigOf(r)+":"+recapSigOf(r)).join("|") : "EMPTY";
   if(box.dataset.bsig!==bsig){
     box.innerHTML="";
     if(!arr.length){ box.innerHTML='<div class="empty"><span class="big">🏆</span>Noch keine Tipps da.<br>Schüler scannen den QR-Code und tippen los!</div>'; }
@@ -1263,9 +1329,12 @@ function renderBoard(){
       const champLine=r.champ?`<div class="rank-champ${r.champOk?' ok':''}">🏆 ${flagHTML(r.champ, r.wave?"flag-wave":"")}<span class="rc-nm">${esc(nameDE(r.champ))}</span>${r.champOk?`<span class="rc-pts">+${CHAMP_BONUS}</span>`:''}</div>`:"";
       // Live-Tipp: was diese Person fürs gerade laufende Spiel getippt hat (Flagge – Tipp – Flagge); "—" wenn kein Tipp.
       const liveLine=r.live.length?`<div class="rank-live">${r.live.map(l=>{ const t=parseTip(l.tip); const tip=t?esc(t[0]+":"+t[1]):'<span class="rl-no">—</span>'; return `<span class="rl-game" title="${esc(nameDE(l.heim))} – ${esc(nameDE(l.gast))}"><span class="rl-dot"></span>${flagHTML(l.heim)}<b class="rl-tip">${tip}</b>${flagHTML(l.gast)}</span>`; }).join("")}</div>`:"";
+      // Auflösung (bis zum nächsten Anpfiff): Endstand des zuletzt beendeten Spiels + Tipp dieser Person + Punkte.
+      // 🎯 = exakt, ✅ = richtige Tendenz/Differenz (Punkte), ▫️ = daneben. Richtig-Tipper werden grün hervorgehoben.
+      const recapLine=r.recap.length?`<div class="rank-recap">${r.recap.map(c=>{ if(!c.res) return ""; const exact=c.real&&c.pts===PUNKTE.exakt, hit=c.real&&c.pts>0; const icon=exact?"🎯":hit?"✅":"▫️"; const cls=exact?"exact":hit?"hit":"miss"; const tip=c.real?('Tipp '+esc(parseTip(c.tip).join(":"))):'<span class="rc-skip">kein Tipp</span>'; return `<span class="rc-r ${cls}" title="${esc(nameDE(c.heim))} ${c.res[0]}:${c.res[1]} ${esc(nameDE(c.gast))}">${icon}${flagHTML(c.heim)}<b class="rc-end">${c.res[0]}:${c.res[1]}</b>${flagHTML(c.gast)}<span class="rc-tip">${tip}</span><span class="rc-pt">${c.pts>0?'+'+c.pts:'0'}</span></span>`; }).join("")}</div>`:"";
       const row=document.createElement("div"); row.className="rank-row rank-"+pos+(r.me?" me":""); row.id="rrow-"+r.pid;
       row.innerHTML=`<div class="rank-pos">${medal}</div>${gifHtml}
-        <div class="rank-name">${esc(r.name)}${r.me?' <span class="pill">du</span>':''}<div class="sub" id="rsub-${r.pid}">${r.exakt} exakt · ${r.getippt}/72 getippt</div>${champLine}${liveLine}</div>
+        <div class="rank-name">${esc(r.name)}${r.me?' <span class="pill">du</span>':''}<div class="sub" id="rsub-${r.pid}">${r.exakt} exakt · ${r.getippt}/72 getippt</div>${champLine}${liveLine}${recapLine}</div>
         <div class="rank-pts">${r.sum}<small>Punkte</small></div>`;
       box.appendChild(row);
     });
@@ -1440,6 +1509,50 @@ function renderAdmin(){
         ? '✅ Weltmeister: <b>'+flag(actual)+' '+esc(nameDE(actual))+'</b> · '+(n? ('<b>'+n+'</b> mit Bonus (+'+CHAMP_BONUS+').') : 'noch niemand hatte ihn getippt.')
         : 'Noch kein Weltmeister gesetzt – der Bonus (+'+CHAMP_BONUS+') wird vergeben, sobald du ihn hier einträgst.';
     }
+  }
+  renderResultAdmin();
+}
+// Lehrer: Endstände der bereits angepfiffenen Spiele eintragen (neueste zuerst). Eigene Eingabe = Override (Vorrang vor Auto).
+// Signatur = Struktur + Quelle-Status (nicht die Tore) -> Schüler-Tipp-Events bauen die Felder NICHT neu (Eingabe ungestört);
+// nur ein neues angepfiffenes Spiel oder ein Quelle-Wechsel löst Neubau aus, Tore werden sonst in-place aktualisiert.
+function renderResultAdmin(){
+  const box=$("#resAdmin"); if(!box) return;
+  const ov=(roomState&&roomState.overrides)||{};
+  const MAXROWS=16;
+  const started=FIXTURES.filter(f=>kickoffPassed(f)).map(f=>({f,kt:kickoffTime(f)})).sort((a,b)=>(b.kt||0)-(a.kt||0));
+  const show=started.slice(0,MAXROWS);
+  const srcOf=f=> ov[f.id]?"o":(autoResults[f.id]?"a":"x");
+  const sig=show.map(({f})=>f.id+srcOf(f)).join("|")+"|n"+started.length;
+  if(box.dataset.sig!==sig){
+    if(!show.length){ box.innerHTML='<div class="tiny">Noch kein Spiel angepfiffen – sobald eins läuft, kannst du den Endstand hier eintragen.</div>'; box.dataset.sig=sig; return; }
+    box.innerHTML = show.map(({f})=>{
+      const r=results[f.id], h=r?r[0]:"", g=r?r[1]:"", s=srcOf(f);
+      const badge = s==="o"? '<span class="res-src ov">✎ von dir</span>' : s==="a"? '<span class="res-src auto">✓ automatisch</span>' : '<span class="res-src none">offen</span>';
+      return `<div class="res-row" data-fid="${f.id}">
+        <div class="res-teams">${flagHTML(f.heim)}<input class="res-in" data-side="h" inputmode="numeric" pattern="[0-9]*" maxlength="2" value="${h}" aria-label="Tore ${esc(nameDE(f.heim))}"><span class="res-colon">:</span><input class="res-in" data-side="g" inputmode="numeric" pattern="[0-9]*" maxlength="2" value="${g}" aria-label="Tore ${esc(nameDE(f.gast))}">${flagHTML(f.gast)}</div>
+        <div class="res-meta"><span class="res-nm">${esc(nameDE(f.heim))} – ${esc(nameDE(f.gast))}</span>${badge}${s==="o"? ' <button class="btn sec sm res-clear" type="button">↺ Auto</button>':''}</div>
+      </div>`;
+    }).join("") + (started.length>MAXROWS? `<div class="tiny" style="margin-top:8px">Nur die ${MAXROWS} neuesten Spiele angezeigt – ältere wertet die Automatik.</div>`:"");
+    box.querySelectorAll(".res-row").forEach(row=>{
+      const fid=row.dataset.fid, ih=row.querySelector('[data-side="h"]'), ig=row.querySelector('[data-side="g"]');
+      const commit=()=>setOverride(fid, ih.value, ig.value);
+      [ih,ig].forEach(inp=>{
+        inp.addEventListener("input", e=>{ e.target.value=e.target.value.replace(/[^0-9]/g,"").slice(0,2); });
+        inp.addEventListener("change", commit);
+        inp.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); commit(); inp.blur(); } });
+      });
+      const clr=row.querySelector(".res-clear");
+      if(clr) clr.addEventListener("click", ()=>{ setOverride(fid,"",""); toast("Zurück auf Automatik"); });
+    });
+    box.dataset.sig=sig;
+  } else {
+    // Struktur unverändert -> nur die Tore aktualisieren (z.B. Auto-Wert kam nach), fokussierte Felder NICHT anfassen
+    show.forEach(({f})=>{
+      const row=box.querySelector('.res-row[data-fid="'+f.id+'"]'); if(!row) return;
+      const r=results[f.id], ih=row.querySelector('[data-side="h"]'), ig=row.querySelector('[data-side="g"]');
+      if(ih && document.activeElement!==ih) ih.value=r?r[0]:"";
+      if(ig && document.activeElement!==ig) ig.value=r?r[1]:"";
+    });
   }
 }
 function renderShare(){
