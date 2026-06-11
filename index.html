@@ -1535,7 +1535,9 @@ function renderResultAdmin(){
     }).join("") + (started.length>MAXROWS? `<div class="tiny" style="margin-top:8px">Nur die ${MAXROWS} neuesten Spiele angezeigt – ältere wertet die Automatik.</div>`:"");
     box.querySelectorAll(".res-row").forEach(row=>{
       const fid=row.dataset.fid, ih=row.querySelector('[data-side="h"]'), ig=row.querySelector('[data-side="g"]');
-      const commit=()=>setOverride(fid, ih.value, ig.value);
+      // Übernehmen NUR wenn beide Tore stehen (sonst Teil-Eingabe stehen lassen, kein Speichern/Re-Render);
+      // beide leer = zurück auf Automatik. So zerstört kein Zwischen-Render die laufende Eingabe.
+      const commit=()=>{ const h=ih.value.trim(), g=ig.value.trim(); if(h!==""&&g!=="") setOverride(fid,h,g); else if(h===""&&g==="") setOverride(fid,"",""); };
       [ih,ig].forEach(inp=>{
         inp.addEventListener("input", e=>{ e.target.value=e.target.value.replace(/[^0-9]/g,"").slice(0,2); });
         inp.addEventListener("change", commit);
@@ -1546,12 +1548,14 @@ function renderResultAdmin(){
     });
     box.dataset.sig=sig;
   } else {
-    // Struktur unverändert -> nur die Tore aktualisieren (z.B. Auto-Wert kam nach), fokussierte Felder NICHT anfassen
+    // Struktur unverändert -> nur Tore aktualisieren, wenn ein ECHTES Ergebnis vorliegt; Felder ohne Ergebnis NICHT
+    // anfassen (sonst würde eine gerade laufende Teil-Eingabe geleert). Fokussierte Felder bleiben ohnehin unberührt.
     show.forEach(({f})=>{
+      const r=results[f.id]; if(!r) return;
       const row=box.querySelector('.res-row[data-fid="'+f.id+'"]'); if(!row) return;
-      const r=results[f.id], ih=row.querySelector('[data-side="h"]'), ig=row.querySelector('[data-side="g"]');
-      if(ih && document.activeElement!==ih) ih.value=r?r[0]:"";
-      if(ig && document.activeElement!==ig) ig.value=r?r[1]:"";
+      const ih=row.querySelector('[data-side="h"]'), ig=row.querySelector('[data-side="g"]');
+      if(ih && document.activeElement!==ih) ih.value=r[0];
+      if(ig && document.activeElement!==ig) ig.value=r[1];
     });
   }
 }
