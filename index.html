@@ -118,6 +118,16 @@
   .rank-champ .rc-nm{color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0}
   .rank-champ.ok{color:var(--green)} .rank-champ.ok .rc-nm{color:var(--green)}
   .rank-champ .rc-pts{font-family:var(--font-display); font-weight:400; color:var(--green); font-size:15px; margin-left:2px; flex:none}
+  /* Live-Tipp: Tipp jeder Person für das/die gerade laufende(n) Spiel(e) */
+  .rank-live{display:flex; flex-wrap:wrap; align-items:center; gap:5px 8px; min-width:0; margin-top:5px}
+  .rank-live .rl-game{display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:800; color:var(--ink); background:var(--cream); border:2px solid var(--ink); border-radius:999px; padding:2px 8px; max-width:100%}
+  .rank-live .rl-dot{width:8px; height:8px; border-radius:50%; background:var(--vermilion); flex:none; box-shadow:0 0 0 2px rgba(0,0,0,.06); animation:livepulse 1.1s ease-in-out infinite}
+  .rank-live .flagimg{width:18px; flex:none}
+  .rank-live .flag-emo{font-size:14px; flex:none}
+  .rank-live .rl-tip{font-family:var(--font-display); font-weight:400; font-size:15px; letter-spacing:.02em; min-width:16px; text-align:center}
+  .rank-live .rl-no{color:var(--ink-soft); font-family:var(--font-body); font-weight:800; font-size:13px}
+  @keyframes livepulse{0%,100%{opacity:1; transform:scale(1)} 50%{opacity:.35; transform:scale(.65)}}
+  @media (prefers-reduced-motion: reduce){ .rank-live .rl-dot{animation:none} }
 
   /* Jubel-GIFs & Fails (Top-10-Belohnung) – kuratierte, selbst-animierte Sticker (kindgerecht, offline, keine Fremd-Links).
      Klassen sind nach BEWEGUNG benannt (nicht pro Sticker), damit viele Emojis dieselbe Animation teilen. */
@@ -921,6 +931,20 @@ function untilStr(kt){
 
 function isLocked(f){ return !!results[f.id] || kickoffPassed(f); }
 
+// Aktuell laufende(s) Spiel(e): Anpfiff ist vorbei, noch KEIN Endergebnis da, und innerhalb des Live-Zeitfensters
+// (damit ein längst beendetes Spiel, dessen Ergebnis die Quelle nur verzögert liefert, nicht ewig „läuft").
+// Chronologisch (frühester Anpfiff zuerst). Rein funktional -> testbar. Meist genau 1 Spiel, am letzten Gruppentag bis zu 2.
+const LIVE_WINDOW_MS = 150*60000;   // ~2,5 h: 90' + Halbzeitpause + Nachspielzeit + Puffer
+function liveFixtures(){
+  const t=now(); const out=[];
+  for(const f of FIXTURES){
+    if(results[f.id]) continue;                       // Endstand vorhanden -> nicht mehr live
+    const kt=kickoffTime(f); if(kt==null) continue;   // Anpfiff unbekannt -> nicht beurteilbar
+    if(t>=kt && t<kt+LIVE_WINDOW_MS) out.push({f,kt});
+  }
+  return out.sort((a,b)=>a.kt-b.kt).map(x=>x.f);
+}
+
 /* ================= WELTMEISTER-TIPP (Extrapunkte) =================
    Tipp muss VOR Anpfiff des ersten Spiels stehen; danach gesperrt. Der tatsächliche
    Weltmeister wird vom Lehrer gesetzt (state/champion) – Quelle der Wahrheit für den Bonus. */
@@ -1116,6 +1140,9 @@ function renderNext(){
 }
 // Sekunden-Ticker: Countdown live runterzählen + Spiele PUNKTGENAU bei Anpfiff sperren (tippbar bis zur letzten Sekunde).
 function liveTick(){
+  // Wechselt die Menge der laufenden Spiele (Anpfiff/Abpfiff), die Rangliste sofort neu zeichnen -> Live-Tipp-Zeile
+  // erscheint/verschwindet ohne auf den 90-Sek-Ergebnis-Poll zu warten. Läuft auch ohne eigene Anmeldung.
+  const lsig=liveFixtures().map(f=>f.id).join(","); if(lsig!==_liveSig){ _liveSig=lsig; scheduleRender(); }
   if(!(me.name && me.name.trim())) return;
   if(MODE==="fire" && players[MYPID] && players[MYPID].removed) return;
   renderNext();
@@ -1200,13 +1227,15 @@ function rankedPlayers(){
   const arr=[];
   const src = (MODE==="fire")? players : (me.name? {[MYPID]:{name:me.name,tips:me.tips}} : {});
   const champ=actualChampion();
+  const live=liveFixtures();   // gerade laufende Spiele – für alle Spieler gleich, Tipp je Person unterschiedlich
   for(const pid in src){ const p=src[pid]; if(!p||!p.name||p.removed) continue;   // entfernte Spieler nicht werten/zeigen
     const base=totalFor(p.tips||{}, results, p.susp||[], kickoffTime);
     const ch=champValid(p.champ), champOk=!!(ch && champ && ch===champ);   // Weltmeister-Bonus, sobald der echte Sieger gesetzt ist
     const champBonus=champOk?CHAMP_BONUS:0;
     const sig=signatureGif(p.name);   // persönliches Signatur-GIF hat Vorrang; reservierte IDs für Nicht-Besitzer ausblenden
     const gif = sig || (SIG_IDS.has(gifValid(p.gif)) ? "" : gifValid(p.gif));
-    arr.push({pid, name:p.name, gif, sig:!!sig, wave:flagWaves(p.name), ...base, champ:ch, champOk, champBonus, sum:base.sum+champBonus, me:pid===MYPID}); }
+    const liveTips = live.map(f=>({ id:f.id, heim:f.heim, gast:f.gast, tip:(p.tips&&p.tips[f.id])||"" }));   // Tipp dieser Person fürs laufende Spiel
+    arr.push({pid, name:p.name, gif, sig:!!sig, wave:flagWaves(p.name), ...base, champ:ch, champOk, champBonus, sum:base.sum+champBonus, me:pid===MYPID, live:liveTips}); }
   arr.sort((a,b)=> b.sum-a.sum||b.exakt-a.exakt||a.name.localeCompare(b.name));
   return arr;
 }
@@ -1220,7 +1249,10 @@ function renderBoard(){
   // Struktur-Signatur: ALLES außer dem live wechselnden "getippt"-Zähler. Nur wenn sich die Rangliste wirklich
   // ändert (Reihenfolge/Punkte/exakt/GIF/Champ/Namen/Spielerzahl), wird komplett neu gebaut – sonst bleiben
   // GIF + Wehen-Flagge stehen (kein Neu-Erzeugen = kein Flackern beim normalen Tippen).
-  const bsig = arr.length ? rows.map(({r,pos})=>pos+":"+r.pid+":"+r.sum+":"+r.exakt+":"+(r.gif||"")+":"+(r.champ||"")+":"+(r.champOk?1:0)+":"+(r.me?1:0)+":"+r.name).join("|") : "EMPTY";
+  // Live-Tipp gehört in die Signatur (sonst erschiene/verschwände die Zeile bei An-/Abpfiff nicht). Tipps sind während
+  // des laufenden Spiels gesperrt -> der String ändert sich nur an den Spielgrenzen, kein Dauer-Rebuild.
+  const liveSigOf = r => r.live.map(l=>l.id+"="+l.tip).join(",");
+  const bsig = arr.length ? rows.map(({r,pos})=>pos+":"+r.pid+":"+r.sum+":"+r.exakt+":"+(r.gif||"")+":"+(r.champ||"")+":"+(r.champOk?1:0)+":"+(r.me?1:0)+":"+r.name+":"+liveSigOf(r)).join("|") : "EMPTY";
   if(box.dataset.bsig!==bsig){
     box.innerHTML="";
     if(!arr.length){ box.innerHTML='<div class="empty"><span class="big">🏆</span>Noch keine Tipps da.<br>Schüler scannen den QR-Code und tippen los!</div>'; }
@@ -1229,9 +1261,11 @@ function renderBoard(){
       const gifHtml=((r.sig || pos<=TOP_GIF) && r.gif)?`<div class="rank-gif${r.sig?' rank-gif-sig':''}">${gifSticker(r.gif)}</div>`:"";
       // Weltmeister-Tipp je Spieler anzeigen (Flagge + Land); stimmt er mit dem echten Sieger -> grün + Bonus.
       const champLine=r.champ?`<div class="rank-champ${r.champOk?' ok':''}">🏆 ${flagHTML(r.champ, r.wave?"flag-wave":"")}<span class="rc-nm">${esc(nameDE(r.champ))}</span>${r.champOk?`<span class="rc-pts">+${CHAMP_BONUS}</span>`:''}</div>`:"";
+      // Live-Tipp: was diese Person fürs gerade laufende Spiel getippt hat (Flagge – Tipp – Flagge); "—" wenn kein Tipp.
+      const liveLine=r.live.length?`<div class="rank-live">${r.live.map(l=>{ const t=parseTip(l.tip); const tip=t?esc(t[0]+":"+t[1]):'<span class="rl-no">—</span>'; return `<span class="rl-game" title="${esc(nameDE(l.heim))} – ${esc(nameDE(l.gast))}"><span class="rl-dot"></span>${flagHTML(l.heim)}<b class="rl-tip">${tip}</b>${flagHTML(l.gast)}</span>`; }).join("")}</div>`:"";
       const row=document.createElement("div"); row.className="rank-row rank-"+pos+(r.me?" me":""); row.id="rrow-"+r.pid;
       row.innerHTML=`<div class="rank-pos">${medal}</div>${gifHtml}
-        <div class="rank-name">${esc(r.name)}${r.me?' <span class="pill">du</span>':''}<div class="sub" id="rsub-${r.pid}">${r.exakt} exakt · ${r.getippt}/72 getippt</div>${champLine}</div>
+        <div class="rank-name">${esc(r.name)}${r.me?' <span class="pill">du</span>':''}<div class="sub" id="rsub-${r.pid}">${r.exakt} exakt · ${r.getippt}/72 getippt</div>${champLine}${liveLine}</div>
         <div class="rank-pts">${r.sum}<small>Punkte</small></div>`;
       box.appendChild(row);
     });
@@ -1443,6 +1477,7 @@ function scheduleRender(){
   const run=()=>{ _renderQueued=false; try{ renderAll(); }catch(e){ console.error("Render-Fehler (ignoriert, App läuft weiter):", e); } };
   if(typeof requestAnimationFrame==="function") requestAnimationFrame(run); else setTimeout(run,16);
 }
+let _liveSig="";   // welche Spiele laufen gerade? Ändert sich das (An-/Abpfiff), Board sofort neu zeichnen.
 
 /* ================= TABS ================= */
 function refreshTabs(){
