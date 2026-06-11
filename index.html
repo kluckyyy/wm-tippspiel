@@ -1307,9 +1307,10 @@ function renderBoard(){
   $("#boardSub").textContent = (MODE==="fire"?Object.keys(players).length:(me.name?1:0))+" Mitspieler · "+done+" von 72 Spielen gewertet";
   const arr=rankedPlayers(), box=$("#rankList");
   let myPos=null;
-  // Fortlaufende Platznummer entlang der Reihenfolge: 1,2,3,4,5 … – KEINE geteilten Plätze, keine Lücken (Stefan).
-  // Reihenfolge bei Gleichstand entscheidet die Sortierung in rankedPlayers (Punkte, dann exakt, dann Name).
-  const rows=[]; arr.forEach((r,i)=>{ const pos=i+1; if(r.me) myPos=pos; rows.push({r,pos}); });
+  // Dichte Platznummer (Stefan): GLEICHE Punktzahl = GLEICHER Platz, danach LÜCKENLOS weiter -> 1,1,2,2,3 …
+  // Platz hängt nur an der angezeigten Punktzahl (sum); die exakt-Zahl bestimmt nur die Reihenfolge INNERHALB einer
+  // Punktgruppe (über die Sortierung in rankedPlayers), nicht den Platz.
+  const rows=[]; { let pos=0,last=null; arr.forEach(r=>{ if(r.sum!==last){ pos+=1; last=r.sum; } if(r.me) myPos=pos; rows.push({r,pos}); }); }
   // Struktur-Signatur: ALLES außer dem live wechselnden "getippt"-Zähler. Nur wenn sich die Rangliste wirklich
   // ändert (Reihenfolge/Punkte/exakt/GIF/Champ/Namen/Spielerzahl), wird komplett neu gebaut – sonst bleiben
   // GIF + Wehen-Flagge stehen (kein Neu-Erzeugen = kein Flackern beim normalen Tippen).
