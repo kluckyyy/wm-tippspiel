@@ -1307,8 +1307,9 @@ function renderBoard(){
   $("#boardSub").textContent = (MODE==="fire"?Object.keys(players).length:(me.name?1:0))+" Mitspieler · "+done+" von 72 Spielen gewertet";
   const arr=rankedPlayers(), box=$("#rankList");
   let myPos=null;
-  // Positionen rein berechnen (ohne DOM) – inkl. gleicher Platz bei Gleichstand
-  const rows=[]; { let pos=0,ls=null,le=null; arr.forEach((r,i)=>{ if(r.sum!==ls||r.exakt!==le){pos=i+1;ls=r.sum;le=r.exakt;} if(r.me) myPos=pos; rows.push({r,pos}); }); }
+  // Fortlaufende Platznummer entlang der Reihenfolge: 1,2,3,4,5 … – KEINE geteilten Plätze, keine Lücken (Stefan).
+  // Reihenfolge bei Gleichstand entscheidet die Sortierung in rankedPlayers (Punkte, dann exakt, dann Name).
+  const rows=[]; arr.forEach((r,i)=>{ const pos=i+1; if(r.me) myPos=pos; rows.push({r,pos}); });
   // Struktur-Signatur: ALLES außer dem live wechselnden "getippt"-Zähler. Nur wenn sich die Rangliste wirklich
   // ändert (Reihenfolge/Punkte/exakt/GIF/Champ/Namen/Spielerzahl), wird komplett neu gebaut – sonst bleiben
   // GIF + Wehen-Flagge stehen (kein Neu-Erzeugen = kein Flackern beim normalen Tippen).
