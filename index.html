@@ -1781,6 +1781,10 @@ $("#copyAdmin").addEventListener("click",async()=>toast(await copyText($("#admin
   if(justCreated && ADMIN) selectTab("share");
   pollResults(); setInterval(pollResults, RESULTS_POLL_MS);
   setInterval(liveTick, 1000);   // Live-Countdown + punktgenaue Sperre bei Anpfiff
+  // Robustheit: Handys drosseln/pausieren Timer im Hintergrund -> beim Zurückkehren in den Tab (oder Online-Werden)
+  // sofort frische Ergebnisse holen, statt bis zu 90 s auf den nächsten Poll zu warten.
+  try{ document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) pollResults(); }); }catch(e){}
+  try{ window.addEventListener("focus", ()=>pollResults()); window.addEventListener("online", ()=>pollResults()); }catch(e){}
 })();
 </script>
 </body>
