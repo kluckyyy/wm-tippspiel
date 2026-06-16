@@ -400,7 +400,7 @@
       <div class="card" id="submitCard">
         <button class="btn" id="checkBtn">✅ Tipps prüfen</button>
         <div class="warnbox" id="submitWarn"></div>
-        <p class="tiny" style="margin-top:10px">Nicht getippte Spiele zählen automatisch als <b>0:0</b>. Deine Tipps sind sofort gespeichert – du kannst jederzeit nachbessern.</p>
+        <p class="tiny" style="margin-top:10px">Nicht getippte Spiele zählen <b>nicht</b> (kein Tipp = keine Punkte, aber auch kein Abzug). Deine Tipps sind sofort gespeichert – du kannst jederzeit nachbessern.</p>
       </div>
     </div>
   </section>
@@ -608,10 +608,11 @@ const sign=x=> x>0?1:x<0?-1:0;
 function parseTip(str){ if(!str||typeof str!=="string"||str.indexOf(":")<0) return null; const a=str.split(":"); const h=parseInt(a[0],10),g=parseInt(a[1],10); if(isNaN(h)||isNaN(g)) return null; return [h,g]; }
 // Roh-Anzeige eines (auch unvollständigen) Tipps: "2:1"->["2","1"], "2:"->["2",""], ":1"->["","1"], sonst ["",""].
 function tipParts(str){ if(typeof str!=="string"){ return ["",""]; } const i=str.indexOf(":"); if(i<0) return ["",""]; return [ str.slice(0,i).replace(/[^0-9]/g,"").slice(0,2), str.slice(i+1).replace(/[^0-9]/g,"").slice(0,2) ]; }
-const effTip=str=> parseTip(str) || [0,0];   // nicht getippte Spiele zählen als 0:0
 function pointsFor(tipStr, resArr){
   if(!resArr) return null;                    // Ergebnis noch nicht da
-  const [th,tg]=effTip(tipStr), [eh,eg]=resArr;
+  const tip=parseTip(tipStr);
+  if(!tip) return null;                        // NICHT getippt -> komplett aus der Wertung (kein 0:0-Default mehr)
+  const [th,tg]=tip, [eh,eg]=resArr;
   if(th===eh&&tg===eg) return PUNKTE.exakt;
   if(sign(th-tg)!==sign(eh-eg)) return 0;
   if(sign(eh-eg)===0) return PUNKTE.tendenz;
@@ -627,7 +628,7 @@ function totalFor(tips, results, susp, koTime){
     const tip=tips&&tips[f.id];
     if(parseTip(tip)) getippt++;
     const r=results[f.id];
-    let p=pointsFor(tip,r);                    // r vorhanden ⇒ immer eine Zahl (0:0-Default)
+    let p=pointsFor(tip,r);                    // null = kein Ergebnis ODER nicht getippt -> ungetippte Spiele zählen NICHT
     if(p!=null){
       if(susp && susp.length && koTime && inSusp(koTime(f), susp)){ p=0; gesperrt++; }   // während Sperre: 0
       sum+=p; gewertet++; if(p===PUNKTE.exakt) exakt++;
@@ -1085,14 +1086,14 @@ function renderTippen(){
     const r=results[f.id];
     if(matchEl) matchEl.classList.toggle("locked",locked);
     if(badge){
-      if(r){ const p=pointsFor(tip,r); badge.className="ptbadge "+ptClass(p); badge.textContent=p+" Pkt"; }
+      if(r){ if(t){ const p=pointsFor(tip,r); badge.className="ptbadge "+ptClass(p); badge.textContent=p+" Pkt"; } else { badge.className="pill"; badge.textContent="nicht getippt"; } }
       else if(locked){ badge.className="pill live"; badge.textContent="läuft"; }
       else { badge.className="pill open"; badge.textContent="offen"; }
     }
     if(resEl){
       const mt=fixMeta[f.id];
       let s="";
-      if(r){ const shown=t?(t[0]+":"+t[1]):"0:0"; s='Endstand <b>'+r[0]+':'+r[1]+'</b> · dein Tipp <span class="mine">'+shown+'</span>'+(t?'':' (nicht getippt)'); }
+      if(r){ s='Endstand <b>'+r[0]+':'+r[1]+'</b>'+(t?(' · dein Tipp <span class="mine">'+t[0]+':'+t[1]+'</span>'):' · <span class="mine">nicht getippt</span> (zählt nicht)'); }
       else if(mt&&mt.date) s=fmtKick(mt);
       resEl.innerHTML=s;
     }
@@ -1626,14 +1627,14 @@ function runCheck(){
   const wb=$("#submitWarn");
   if(!offen.length){
     wb.classList.remove("bad"); wb.classList.add("show");
-    wb.innerHTML="✅ <b>Alles abgeschickt!</b> Du hast alle tippbaren Spiele getippt."+(lockedOffen?(" <span class='tiny'>("+lockedOffen+" bereits angepfiffene Spiele zählen als 0:0.)</span>"):"");
+    wb.innerHTML="✅ <b>Alles abgeschickt!</b> Du hast alle tippbaren Spiele getippt."+(lockedOffen?(" <span class='tiny'>("+lockedOffen+" bereits angepfiffene Spiele ohne Tipp zählen nicht.)</span>"):"");
     toast("Alles getippt ✓");
     return;
   }
   wb.classList.remove("bad"); wb.classList.add("show");
   const links=offen.map(f=>`<a href="#" class="jump" data-jump="${f.id}" style="color:var(--ink); font-weight:800; text-decoration:underline">${f.gruppe.replace("Gruppe ","Gr. ")}: ${esc(nameDE(f.heim))} – ${esc(nameDE(f.gast))}</a>`).join(" · ");
-  wb.innerHTML="⚠️ Noch <b>"+offen.length+"</b> Spiele ohne Tipp – die zählen sonst als <b>0:0</b>. Tippe hier nach:<div style='margin-top:8px; line-height:1.9'>"+links+"</div>"
-    +(lockedOffen?("<div class='tiny' style='margin-top:8px'>"+lockedOffen+" bereits angepfiffene Spiele zählen als 0:0.</div>"):"");
+  wb.innerHTML="⚠️ Noch <b>"+offen.length+"</b> Spiele ohne Tipp – ohne Tipp gibt's dafür <b>keine Punkte</b>. Tippe hier nach:<div style='margin-top:8px; line-height:1.9'>"+links+"</div>"
+    +(lockedOffen?("<div class='tiny' style='margin-top:8px'>"+lockedOffen+" bereits angepfiffene Spiele ohne Tipp zählen nicht mehr.</div>"):"");
   wb.querySelectorAll(".jump").forEach(a=>a.addEventListener("click",e=>{ e.preventDefault(); scrollToFixture(a.dataset.jump); }));
   // erstes offenes direkt ansteuern
   scrollToFixture(offen[0].id);
