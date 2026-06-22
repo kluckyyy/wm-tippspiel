@@ -185,6 +185,13 @@
   .gifst-goal{position:relative; display:inline-block}
   .gifst-goal::after{content:"⚽"; position:absolute; left:-15px; top:1px; font-size:13px; animation:g-shot 1.3s ease-in infinite}
   @keyframes g-shot{0%{left:-16px; opacity:0; transform:scale(.55)} 35%{opacity:1} 70%{left:5px; transform:scale(1)} 100%{left:5px; opacity:0}}
+  /* 80er-Kult: Knight-Rider-Lauflicht (rote Scan-Leiste, analog zum ⚽-Schuss; Auto steht, Licht wandert) */
+  .gifst-scan{position:relative; display:inline-block}
+  .gifst-scan::after{content:""; position:absolute; left:0; right:0; bottom:-3px; height:3px; border-radius:2px; background:radial-gradient(circle, #ff2b2b 0%, #ff2b2b 35%, transparent 72%); background-size:11px 100%; background-repeat:no-repeat; animation:g-scan 1.1s ease-in-out infinite}
+  @keyframes g-scan{0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%}}
+  /* sanftes Schweben (Ghostbusters-Geist) */
+  @keyframes g-float{0%,100%{transform:translateY(2px)} 50%{transform:translateY(-5px)}}
+  .gifst-float{animation:g-float 2.2s ease-in-out infinite}
 
   /* zuklappbare Jubel-Karte – startet eingeklappt, damit sie wenig Platz nimmt */
   .gifcard{padding-top:0; padding-bottom:0}
@@ -1221,7 +1228,7 @@ function ptClass(p){ return p===PUNKTE.exakt?"pt4":p===PUNKTE.diff?"pt3":p===PUN
 
 /* ================= JUBEL-GIFS & FAILS (Top-10) =================
    Kuratierte, selbst-animierte Sticker – kindgerecht (5. Klasse), offline, keine Fremd-Inhalte.
-   Felder: id (stabil, in Firebase gespeichert) · emoji · label · cat ('jubel'|'fail') · anim (CSS-Bewegung). */
+   Felder: id (stabil, in Firebase gespeichert) · emoji · label · cat ('jubel'|'fail'|'kult'|'spezial') · anim (CSS-Bewegung). */
 const GIFS = [
   // 🎉 Jubel
   { id:"ball",      emoji:"⚽",  label:"Hüpfender Ball",  cat:"jubel", anim:"bounce" },
@@ -1240,6 +1247,14 @@ const GIFS = [
   { id:"hundred",   emoji:"💯",  label:"Volle Punktzahl", cat:"jubel", anim:"pulse" },
   { id:"dance",     emoji:"🕺",  label:"Torjubel-Tanz",   cat:"jubel", anim:"wobble" },
   { id:"goat",      emoji:"🐐",  label:"Der GOAT",        cat:"jubel", anim:"bounce" },
+  { id:"eagle",     emoji:"🦅",  label:"Adler",           cat:"jubel", anim:"swing" },
+  { id:"cool",      emoji:"😎",  label:"Voll cool",       cat:"jubel", anim:"wobble" },
+  { id:"lion",      emoji:"🦁",  label:"Löwenherz",       cat:"jubel", anim:"bounce" },
+  { id:"starstruck",emoji:"🤩",  label:"Hin & weg",       cat:"jubel", anim:"twinkle" },
+  { id:"hero",      emoji:"🦸",  label:"Superheld",       cat:"jubel", anim:"rocket" },
+  { id:"gloves",    emoji:"🧤",  label:"Super-Parade",    cat:"jubel", anim:"swing" },
+  { id:"hands",     emoji:"🙌",  label:"Jubelarme",       cat:"jubel", anim:"bounce" },
+  { id:"icecold",   emoji:"🥶",  label:"Eiskalt vollstreckt", cat:"jubel", anim:"pulse" },
   // 😅 Fails (harmlos & lustig)
   { id:"slip",      emoji:"🍌",  label:"Bananenschale",   cat:"fail",  anim:"spin" },
   { id:"oops",      emoji:"🙈",  label:"Hoppla!",         cat:"fail",  anim:"shake" },
@@ -1251,8 +1266,23 @@ const GIFS = [
   { id:"facepalm",  emoji:"🤦",  label:"Oh nein…",        cat:"fail",  anim:"shake" },
   { id:"dog",       emoji:"🐕",  label:"Hund auf'm Platz",cat:"fail",  anim:"bounce" },
   { id:"pigeon",    emoji:"🐦",  label:"Taube am Ball",   cat:"fail",  anim:"bounce" },
-  // 🧙 Persönliche Signatur-GIFs (cat:"signature" -> erscheinen NICHT im normalen Picker; nur fest an einen Namen gebunden)
-  { id:"gandalf",   img:"gandalf.gif",                    label:"Gandalf",         cat:"signature" }
+  { id:"shrug",     emoji:"🤷",  label:"Keine Ahnung",    cat:"fail",  anim:"wobble" },
+  { id:"penguin",   emoji:"🐧",  label:"Watschel-Watschel", cat:"fail", anim:"wobble" },
+  { id:"sloth",     emoji:"🦥",  label:"Faultier-Tempo",  cat:"fail",  anim:"slow" },
+  { id:"chicken",   emoji:"🐔",  label:"Federvieh am Ball", cat:"fail", anim:"shake" },
+  { id:"woozy",     emoji:"🥴",  label:"Ganz benommen",   cat:"fail",  anim:"spin" },
+  { id:"robot",     emoji:"🤖",  label:"Ruckel-Roboter",  cat:"fail",  anim:"shake" },
+  // 📺 80er-Kult (für die älteren Kollegen – als Emoji+CSS zitiert, kein geschütztes Material)
+  { id:"knight",    emoji:"🚗",  label:"Knight Rider",    cat:"kult",  anim:"scan" },
+  { id:"alf",       emoji:"👽",  label:"A.L.F.",          cat:"kult",  anim:"bounce" },
+  { id:"ateam",     emoji:"🚐",  label:"Das A-Team",      cat:"kult",  anim:"shake" },
+  { id:"airwolf",   emoji:"🚁",  label:"Airwolf",         cat:"kult",  anim:"wobble" },
+  { id:"macgyver",  emoji:"📎",  label:"MacGyver",        cat:"kult",  anim:"wobble" },
+  { id:"dallas",    emoji:"🤠",  label:"Dallas / J.R.",   cat:"kult",  anim:"swing" },
+  { id:"ghost",     emoji:"👻",  label:"Ghostbusters",    cat:"kult",  anim:"float" },
+  { id:"heman",     emoji:"⚔️",  label:"He-Man – I have the power!", cat:"kult", anim:"pulse" },
+  // 🧙 Spezial (früher exklusives Signatur-GIF von Mr.T, jetzt für alle wählbar)
+  { id:"gandalf",   img:"gandalf.gif",                    label:"Gandalf",         cat:"spezial" }
 ];
 const GIFBYID = {}; GIFS.forEach(g=>GIFBYID[g.id]=g);
 const TOP_GIF = 10;   // ab welcher Rang-Grenze ein GIF wählbar/sichtbar ist
@@ -1262,7 +1292,7 @@ const CLIPS_BASE = "cartoon-clips/web/";
 const CLIP_IDS = new Set(["trophy"]);
 // Persönliche Signatur-GIFs: fest an EINEN Spielnamen gebunden, immer sichtbar (auch außerhalb Top 10), exklusiv – niemand sonst kann sie wählen/bekommen.
 // Schlüssel = normalisierter Name (klein, ohne Punkt/Leerzeichen/Bindestrich). Wert = GIF-ID aus GIFS oben.
-const SIGNATURE_GIFS = { "mrt": "gandalf" };   // Mr.T -> Gandalf
+const SIGNATURE_GIFS = {};   // (leer) – Gandalf ist jetzt für alle wählbar (cat:"spezial"), Mr.T nutzt den vollen Picker. Map bleibt für künftige feste Zuweisungen erhalten.
 function sigKey(name){ return String(name||"").trim().toLowerCase().replace(/[\s._\-]/g,""); }
 function signatureGif(name){ return SIGNATURE_GIFS[sigKey(name)] || ""; }
 const SIG_IDS = new Set(Object.values(SIGNATURE_GIFS));   // reservierte IDs: für Nicht-Besitzer ausblenden
@@ -1349,7 +1379,8 @@ function renderBoard(){
   // Jubel-GIF-Picker: nur für mitspielende, nicht-entfernte Personen; freigeschaltet ab Top 10.
   const amPlayer = !!(me.name && me.name.trim()) && !(MODE==="fire" && players[MYPID] && players[MYPID].removed);
   const mySig = amPlayer ? signatureGif(me.name) : "";   // habe ich ein persönliches Signatur-GIF? -> feste Anzeige statt Auswahl
-  const canPick = !mySig && amPlayer && myPos!=null && myPos<=TOP_GIF;
+  const vipPick = amPlayer && sigKey(me.name)==="mrt";   // Mr.T: darf den Picker IMMER sehen (Ex-Signatur-Privileg, rang-unabhängig)
+  const canPick = !mySig && amPlayer && (vipPick || (myPos!=null && myPos<=TOP_GIF));
   const gc=$("#gifCard"), gl=$("#gifLockCard"), gt=$("#gifTitle"), gi=$("#gifIntro"), gp=$("#gifPicker");
   if(gc){
     gc.classList.toggle("hidden", !(canPick || mySig));
@@ -1364,7 +1395,9 @@ function renderBoard(){
       if(!gc.dataset.init){ gc.classList.toggle("open", LS("wmt_gifopen")==="1"); gc.dataset.init="1"; }   // erstmals: Zustand aus LS, default zugeklappt
       const head=$("#gifHead"); if(head) head.setAttribute("aria-expanded", gc.classList.contains("open")?"true":"false");
       if(gt) gt.textContent="🎉 Dein Jubel-GIF";
-      if(gi) gi.innerHTML='Du bist in den <b>Top 10</b> – such dir ein Jubel-GIF oder einen lustigen Fail aus! Es erscheint <b>neben deinem Namen</b> in der Rangliste. Antippen zum Wählen, nochmal auf „keins" zum Entfernen.';
+      if(gi) gi.innerHTML = (vipPick && (myPos==null||myPos>TOP_GIF))
+        ? 'Du darfst <b>immer</b> wählen – such dir ein GIF aus, es erscheint <b>neben deinem Namen</b> in der Rangliste. Antippen zum Wählen, nochmal auf „keins" zum Entfernen.'
+        : 'Du bist in den <b>Top 10</b> – such dir ein Jubel-GIF oder einen lustigen Fail aus! Es erscheint <b>neben deinem Namen</b> in der Rangliste. Antippen zum Wählen, nochmal auf „keins" zum Entfernen.';
       const cur=myGif(), hc=$("#gifHeadCur");                                                               // gewähltes GIF auch im eingeklappten Kopf zeigen
       if(hc) hc.innerHTML = cur ? gifSticker(cur) : '<span style="font-size:11px;color:var(--ink-soft);font-weight:700;text-transform:uppercase;letter-spacing:.05em">antippen</span>';
       renderGifPicker();
@@ -1377,10 +1410,11 @@ function renderGifPicker(){
   const cur=myGif();
   const opt=(id,inner,extra)=>`<div class="gifopt${(cur===id)?" sel":""}" data-gif="${id}"${extra||""}>${inner}</div>`;
   let html=`<div class="gifpick">${opt("",'<span class="none">keins</span>')}</div>`;
-  ["jubel","fail"].forEach(cat=>{
+  const CATLABEL={jubel:"🎉 Jubel", fail:"😅 Fails (harmlos)", kult:"📺 80er-Kult", spezial:"🧙 Spezial"};
+  ["jubel","fail","kult","spezial"].forEach(cat=>{
     const items=GIFS.filter(g=>g.cat===cat);
     if(!items.length) return;
-    html+=`<div class="gifcat">${cat==="jubel"?"🎉 Jubel":"😅 Fails (harmlos)"}</div><div class="gifpick">`;
+    html+=`<div class="gifcat">${CATLABEL[cat]||cat}</div><div class="gifpick">`;
     items.forEach(g=>{ html+=opt(g.id, gifSticker(g.id), ` title="${esc(g.label)}"`); });
     html+="</div>";
   });
