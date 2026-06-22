@@ -154,7 +154,8 @@
 
   /* Jubel-GIFs & Fails (Top-10-Belohnung) – kuratierte, selbst-animierte Sticker (kindgerecht, offline, keine Fremd-Links).
      Klassen sind nach BEWEGUNG benannt (nicht pro Sticker), damit viele Emojis dieselbe Animation teilen. */
-  .rank-gif{flex:none; width:30px; text-align:center}
+  .rank-gif{flex:none; width:auto; min-width:30px; max-width:88px; text-align:center; overflow:hidden; line-height:0}
+  .rank-gif .gifst{font-size:32px}
   .gifst{display:inline-block; font-size:23px; line-height:1; transform-origin:center bottom}
   @keyframes g-bounce{0%,100%{transform:translateY(0)} 30%{transform:translateY(-9px)} 55%{transform:translateY(0)} 72%{transform:translateY(-4px)}}
   .gifst-bounce{animation:g-bounce .95s infinite}
@@ -204,21 +205,22 @@
   .gifbody{display:none; padding-bottom:16px} .gifcard.open .gifbody{display:block}
   .giphy-attr{margin-top:12px; text-align:center; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft); opacity:.85}
   .gifcat{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft); margin:14px 0 2px} .gifcat:first-child{margin-top:4px}
-  .gifpick{display:grid; grid-template-columns:repeat(auto-fill,minmax(54px,1fr)); gap:10px; margin-top:6px}
-  .gifopt{display:grid; place-items:center; height:54px; background:var(--paper); border:2.5px solid var(--ink); border-radius:12px; cursor:pointer; box-shadow:3px 3px 0 var(--ink); transition:transform .08s, box-shadow .08s}
+  .gifpick{display:grid; grid-template-columns:repeat(auto-fill,minmax(70px,1fr)); gap:10px; margin-top:6px}
+  .gifopt{display:grid; place-items:center; height:70px; background:var(--paper); border:2.5px solid var(--ink); border-radius:12px; cursor:pointer; box-shadow:3px 3px 0 var(--ink); transition:transform .08s, box-shadow .08s}
   .gifopt:active{transform:translate(3px,3px); box-shadow:0 0 0 var(--ink)}
   .gifopt.sel{background:var(--yellow); box-shadow:3px 3px 0 var(--vermilion)}
-  .gifopt .gifst{font-size:26px}
+  .gifopt .gifst{font-size:34px}
   .gifopt .none{font-weight:800; font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em}
   /* Cartoon-Clips (ersetzen das Emoji, sobald vorhanden) – sonst greift der Emoji-Fallback */
   .gifclip{display:inline-block; line-height:0}
   .gifclip video{width:26px; height:26px; object-fit:contain; vertical-align:middle; border-radius:6px; display:block}
-  .rank-gif .gifclip video{width:28px; height:28px}
-  .gifopt .gifclip video{width:38px; height:38px}
+  .rank-gif .gifclip video{width:44px; height:44px}
+  .gifopt .gifclip video{width:54px; height:54px}
   /* Bild-Clips (animierte GIF/PNG, z.B. persönliche Signatur) – Querformat zulassen, nicht quadratisch beschneiden */
   .gifclip img{height:26px; width:auto; max-width:54px; object-fit:contain; vertical-align:middle; border-radius:6px; display:block}
-  .rank-gif .gifclip img{height:30px; max-width:64px}
-  .gifhead-cur .gifclip img{height:24px; max-width:52px}
+  .gifopt .gifclip img{height:54px; max-width:66px}
+  .rank-gif .gifclip img{height:44px; max-width:84px}
+  .gifhead-cur .gifclip img{height:30px; max-width:62px}
   /* persönliches Signatur-GIF darf neben dem Namen etwas breiter/größer sein als die normale 30px-Spalte */
   .rank-gif.rank-gif-sig{width:auto; min-width:30px}
   .rank-gif.rank-gif-sig .gifclip img{height:34px; max-width:76px}
@@ -1294,7 +1296,6 @@ const GIFS = [
   { id:"g_konfetti", img:"https://media.giphy.com/media/epbQ7l3UQor7y/200.gif",      label:"Konfetti",       cat:"meme" },
   { id:"g_yes",      img:"https://media.giphy.com/media/8YgTo1kYmiSuk/200.gif",      label:"Yesss!",         cat:"meme" },
   { id:"g_facepalm", img:"https://media.giphy.com/media/vwI4mYEHP8k0w/200.gif",      label:"Facepalm",       cat:"meme" },
-  { id:"g_hoppla",   img:"https://media.giphy.com/media/Hk2kBg2qEiOUORRKbW/200.gif", label:"Hoppla!",        cat:"meme" },
   { id:"g_ka",       img:"https://media.giphy.com/media/jPAdK8Nfzzwt2/200.gif",      label:"Keine Ahnung",   cat:"meme" },
   { id:"g_schnecke", img:"https://media.giphy.com/media/Bn6GYND33DsW9ANwwC/200.gif", label:"Schneckentempo", cat:"meme" },
   { id:"g_hund",     img:"https://media.giphy.com/media/KfqUGJuuxakZerqmco/200.gif", label:"Müder Hund",     cat:"meme" }
