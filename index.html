@@ -202,6 +202,7 @@
   .gifcard.open .gifhead .arrow{transform:rotate(180deg)}
   .gifhead:focus-visible{outline:3px solid var(--vermilion); outline-offset:3px; border-radius:8px}
   .gifbody{display:none; padding-bottom:16px} .gifcard.open .gifbody{display:block}
+  .giphy-attr{margin-top:12px; text-align:center; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft); opacity:.85}
   .gifcat{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft); margin:14px 0 2px} .gifcat:first-child{margin-top:4px}
   .gifpick{display:grid; grid-template-columns:repeat(auto-fill,minmax(54px,1fr)); gap:10px; margin-top:6px}
   .gifopt{display:grid; place-items:center; height:54px; background:var(--paper); border:2.5px solid var(--ink); border-radius:12px; cursor:pointer; box-shadow:3px 3px 0 var(--ink); transition:transform .08s, box-shadow .08s}
@@ -1282,7 +1283,21 @@ const GIFS = [
   { id:"ghost",     emoji:"👻",  label:"Ghostbusters",    cat:"kult",  anim:"float" },
   { id:"heman",     emoji:"⚔️",  label:"He-Man – I have the power!", cat:"kult", anim:"pulse" },
   // 🧙 Spezial (früher exklusives Signatur-GIF von Mr.T, jetzt für alle wählbar)
-  { id:"gandalf",   img:"gandalf.gif",                    label:"Gandalf",         cat:"spezial" }
+  { id:"gandalf",   img:"gandalf.gif",                    label:"Gandalf",         cat:"spezial" },
+  // 🎬 Echte GIFs von GIPHY (rating=g = harmlos), kuratiert + per Vision geprüft; CDN-Hotlink, kein API-Key im Code
+  { id:"g_wmtanz",   img:"https://media.giphy.com/media/J21KMoLpEPwHJ0nsV1/200.gif", label:"WM-Tanz",        cat:"meme" },
+  { id:"g_team",     img:"https://media.giphy.com/media/OsotsSniWA7KRtk9ad/200.gif", label:"Team-Jubel",     cat:"meme" },
+  { id:"g_tanzbaby", img:"https://media.giphy.com/media/Xw6yFn7frR3Y4/200.gif",      label:"Tanz-Baby",      cat:"meme" },
+  { id:"g_daumen",   img:"https://media.giphy.com/media/tIeCLkB8geYtW/200.gif",      label:"Daumen hoch",    cat:"meme" },
+  { id:"g_messi",    img:"https://media.giphy.com/media/TjAcxImn74uoDYVxFl/200.gif", label:"Messi-Tor",      cat:"meme" },
+  { id:"g_pokal",    img:"https://media.giphy.com/media/Q1hprWFxaueR4ElTyh/200.gif", label:"Pokal-Sieger",   cat:"meme" },
+  { id:"g_konfetti", img:"https://media.giphy.com/media/epbQ7l3UQor7y/200.gif",      label:"Konfetti",       cat:"meme" },
+  { id:"g_yes",      img:"https://media.giphy.com/media/8YgTo1kYmiSuk/200.gif",      label:"Yesss!",         cat:"meme" },
+  { id:"g_facepalm", img:"https://media.giphy.com/media/vwI4mYEHP8k0w/200.gif",      label:"Facepalm",       cat:"meme" },
+  { id:"g_hoppla",   img:"https://media.giphy.com/media/Hk2kBg2qEiOUORRKbW/200.gif", label:"Hoppla!",        cat:"meme" },
+  { id:"g_ka",       img:"https://media.giphy.com/media/jPAdK8Nfzzwt2/200.gif",      label:"Keine Ahnung",   cat:"meme" },
+  { id:"g_schnecke", img:"https://media.giphy.com/media/Bn6GYND33DsW9ANwwC/200.gif", label:"Schneckentempo", cat:"meme" },
+  { id:"g_hund",     img:"https://media.giphy.com/media/KfqUGJuuxakZerqmco/200.gif", label:"Müder Hund",     cat:"meme" }
 ];
 const GIFBYID = {}; GIFS.forEach(g=>GIFBYID[g.id]=g);
 const TOP_GIF = 10;   // ab welcher Rang-Grenze ein GIF wählbar/sichtbar ist
@@ -1304,9 +1319,10 @@ function gifValid(id){ return (id && GIFBYID[id]) ? id : ""; }
 // Sticker als HTML: Cartoon-Clip wenn vorhanden, sonst animiertes Emoji (Fallback). "" wenn ID unbekannt.
 function gifSticker(id){
   const g=GIFBYID[gifValid(id)]; if(!g) return "";
-  if(g.img){   // animiertes Bild (GIF/PNG) aus dem Repo – z.B. persönliche Signatur
+  if(g.img){   // animiertes Bild (GIF/PNG): volle URL (z.B. GIPHY-CDN) direkt, sonst Repo-Datei unter CLIPS_BASE
+    const src = /^https?:\/\//.test(g.img) ? g.img : CLIPS_BASE+g.img;
     return '<span class="gifst gifclip" role="img" aria-label="'+esc(g.label)+'" title="'+esc(g.label)+'">'
-      +'<img src="'+CLIPS_BASE+g.img+'" alt="'+esc(g.label)+'" loading="lazy"></span>';
+      +'<img src="'+src+'" alt="'+esc(g.label)+'" loading="lazy" referrerpolicy="no-referrer"></span>';
   }
   if(CLIP_IDS.has(g.id)){
     return '<span class="gifst gifclip" role="img" aria-label="'+esc(g.label)+'" title="'+esc(g.label)+'">'
@@ -1410,14 +1426,15 @@ function renderGifPicker(){
   const cur=myGif();
   const opt=(id,inner,extra)=>`<div class="gifopt${(cur===id)?" sel":""}" data-gif="${id}"${extra||""}>${inner}</div>`;
   let html=`<div class="gifpick">${opt("",'<span class="none">keins</span>')}</div>`;
-  const CATLABEL={jubel:"🎉 Jubel", fail:"😅 Fails (harmlos)", kult:"📺 80er-Kult", spezial:"🧙 Spezial"};
-  ["jubel","fail","kult","spezial"].forEach(cat=>{
+  const CATLABEL={jubel:"🎉 Jubel", fail:"😅 Fails (harmlos)", meme:"🎬 Echte GIFs", kult:"📺 80er-Kult", spezial:"🧙 Spezial"};
+  ["jubel","fail","meme","kult","spezial"].forEach(cat=>{
     const items=GIFS.filter(g=>g.cat===cat);
     if(!items.length) return;
     html+=`<div class="gifcat">${CATLABEL[cat]||cat}</div><div class="gifpick">`;
     items.forEach(g=>{ html+=opt(g.id, gifSticker(g.id), ` title="${esc(g.label)}"`); });
     html+="</div>";
   });
+  if(GIFS.some(g=>g.cat==="meme")) html+='<div class="giphy-attr">🎬 GIFs powered by GIPHY</div>';
   box.innerHTML=html;
   box.querySelectorAll(".gifopt").forEach(o=>o.addEventListener("click",()=>{
     const id=o.dataset.gif; setMyGif(id);
