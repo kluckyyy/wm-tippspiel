@@ -1338,7 +1338,12 @@ const GIFS = [
   { id:"fb_brazil",  img:"https://media.giphy.com/media/RWsqiVgpvUWPsOJPr6/200.gif", label:"Samba-Jubel",    cat:"fussball" },
   { id:"fb_dazn",    img:"https://media.giphy.com/media/QzNhpCoB8i0sLNus4Z/200.gif", label:"WM-Jubel",       cat:"fussball" },
   { id:"fb_usfan",   img:"https://media.giphy.com/media/pM08RNdBiEjMk/200.gif",      label:"Riesenjubel",    cat:"fussball" },
-  { id:"fb_garna",   img:"https://media.giphy.com/media/MXsBBZtCKABcpCYSwt/200.gif", label:"Was für ein Tor!",cat:"fussball" }
+  { id:"fb_garna",   img:"https://media.giphy.com/media/MXsBBZtCKABcpCYSwt/200.gif", label:"Was für ein Tor!",cat:"fussball" },
+  // 😜 Necken & Grüßen (zum „Kommunizieren" mit den Nachbarn in der Rangliste), GIPHY rating=g, per Vision geprüft
+  { id:"nk_wave",    img:"https://media.giphy.com/media/xT9IgG50Fb7Mi0prBC/200.gif", label:"Winke-winke",     cat:"necken" },
+  { id:"nk_bye",     img:"https://media.giphy.com/media/Nry46O07xcwE/200.gif",       label:"Tschüss!",        cat:"necken" },
+  { id:"nk_see",     img:"https://media.giphy.com/media/flWn1Cyk9HcVIj9xWy/200.gif", label:"Ich seh dich!",   cat:"necken" },
+  { id:"nk_one",     img:"https://media.giphy.com/media/LNxMB0t3J1LGogqVUe/200.gif", label:"Nummer 1!",       cat:"necken" }
 ];
 const GIFBYID = {}; GIFS.forEach(g=>GIFBYID[g.id]=g);
 const TOP_GIF = 10;   // ab welcher Rang-Grenze ein GIF wählbar/sichtbar ist
@@ -1467,8 +1472,8 @@ function renderGifPicker(){
   const cur=myGif();
   const opt=(id,inner,extra)=>`<div class="gifopt${(cur===id)?" sel":""}" data-gif="${id}"${extra||""}>${inner}</div>`;
   let html=`<div class="gifpick">${opt("",'<span class="none">keins</span>')}</div>`;
-  const CATLABEL={jubel:"🎉 Jubel", fail:"😅 Fails (harmlos)", fussball:"⚽ Fußball", meme:"🎬 Echte GIFs", kult:"📺 80er-Kult", spezial:"🧙 Spezial"};
-  ["jubel","fail","fussball","meme","kult","spezial"].forEach(cat=>{
+  const CATLABEL={jubel:"🎉 Jubel", fail:"😅 Fails (harmlos)", fussball:"⚽ Fußball", necken:"😜 Necken & Grüßen", meme:"🎬 Echte GIFs", kult:"📺 80er-Kult", spezial:"🧙 Spezial"};
+  ["jubel","fail","fussball","necken","meme","kult","spezial"].forEach(cat=>{
     const items=GIFS.filter(g=>g.cat===cat);
     if(!items.length) return;
     html+=`<div class="gifcat">${CATLABEL[cat]||cat}</div><div class="gifpick">`;
