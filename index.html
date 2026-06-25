@@ -154,7 +154,7 @@
 
   /* Jubel-GIFs & Fails (Top-10-Belohnung) – kuratierte, selbst-animierte Sticker (kindgerecht, offline, keine Fremd-Links).
      Klassen sind nach BEWEGUNG benannt (nicht pro Sticker), damit viele Emojis dieselbe Animation teilen. */
-  .rank-gif{flex:none; width:auto; min-width:30px; max-width:88px; text-align:center; overflow:hidden; line-height:0}
+  .rank-gif{flex:none; width:auto; min-width:30px; max-width:88px; text-align:center; line-height:0}
   .rank-gif .gifst{font-size:32px}
   .gifst{display:inline-block; font-size:23px; line-height:1; transform-origin:center bottom}
   @keyframes g-bounce{0%,100%{transform:translateY(0)} 30%{transform:translateY(-9px)} 55%{transform:translateY(0)} 72%{transform:translateY(-4px)}}
@@ -1319,7 +1319,20 @@ const GIFS = [
   { id:"g_patrick",  img:"https://media.giphy.com/media/19GIHDk6wuw9HVGsiM/200.gif", label:"Patrick",        cat:"meme" },
   { id:"g_pikachu",  img:"https://media.giphy.com/media/pUh8KWBxCjMeMI3S3y/200.gif", label:"Pikachu-Tanz",   cat:"meme" },
   { id:"g_kermit",   img:"https://media.giphy.com/media/DpB9NBjny7jF1pd0yt2/200.gif", label:"Kermit jubelt", cat:"meme" },
-  { id:"g_mario",    img:"https://media.giphy.com/media/LlYjGi9rErbLjyaMNr/200.gif", label:"Mario gewinnt",  cat:"meme" }
+  { id:"g_mario",    img:"https://media.giphy.com/media/LlYjGi9rErbLjyaMNr/200.gif", label:"Mario gewinnt",  cat:"meme" },
+  // ⚽ Fußball-Emotes (Emoji+CSS) + Fußball-GIF
+  { id:"fb_schuss",  emoji:"👟",  label:"Voller Schuss",     cat:"fussball", anim:"pulse" },
+  { id:"fb_gold",    emoji:"🥇",  label:"Goldmedaille",      cat:"fussball", anim:"shine" },
+  { id:"fb_stadion", emoji:"🏟️",  label:"Stadion-Stimmung",  cat:"fussball", anim:"pulse" },
+  { id:"fb_anfeuern",emoji:"📣",  label:"Anfeuern",          cat:"fussball", anim:"shake" },
+  { id:"fb_treffer", emoji:"🎯",  label:"Volltreffer",       cat:"fussball", anim:"pulse" },
+  { id:"fb_salto",   emoji:"🤸",  label:"Jubel-Salto",       cat:"fussball", anim:"spin" },
+  { id:"fb_konter",  emoji:"🏃",  label:"Konter",            cat:"fussball", anim:"flash" },
+  { id:"fb_troete",  emoji:"📯",  label:"Fan-Tröte",         cat:"fussball", anim:"shake" },
+  { id:"fb_gelb",    emoji:"🟨",  label:"Gelbe Karte",       cat:"fussball", anim:"swing" },
+  { id:"fb_rot",     emoji:"🟥",  label:"Rote Karte",        cat:"fussball", anim:"swing" },
+  { id:"fb_abseits", emoji:"🚩",  label:"Abseits!",          cat:"fussball", anim:"swing" },
+  { id:"fb_slide",   img:"https://media.giphy.com/media/QHHhtiTrzDmi9FBNTc/200.gif", label:"Torjubel-Rutsch", cat:"fussball" }
 ];
 const GIFBYID = {}; GIFS.forEach(g=>GIFBYID[g.id]=g);
 const TOP_GIF = 10;   // ab welcher Rang-Grenze ein GIF wählbar/sichtbar ist
@@ -1448,8 +1461,8 @@ function renderGifPicker(){
   const cur=myGif();
   const opt=(id,inner,extra)=>`<div class="gifopt${(cur===id)?" sel":""}" data-gif="${id}"${extra||""}>${inner}</div>`;
   let html=`<div class="gifpick">${opt("",'<span class="none">keins</span>')}</div>`;
-  const CATLABEL={jubel:"🎉 Jubel", fail:"😅 Fails (harmlos)", meme:"🎬 Echte GIFs", kult:"📺 80er-Kult", spezial:"🧙 Spezial"};
-  ["jubel","fail","meme","kult","spezial"].forEach(cat=>{
+  const CATLABEL={jubel:"🎉 Jubel", fail:"😅 Fails (harmlos)", fussball:"⚽ Fußball", meme:"🎬 Echte GIFs", kult:"📺 80er-Kult", spezial:"🧙 Spezial"};
+  ["jubel","fail","fussball","meme","kult","spezial"].forEach(cat=>{
     const items=GIFS.filter(g=>g.cat===cat);
     if(!items.length) return;
     html+=`<div class="gifcat">${CATLABEL[cat]||cat}</div><div class="gifpick">`;
