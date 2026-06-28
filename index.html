@@ -1716,16 +1716,6 @@ const GIFS = [
   { id:"g2_krokowink",   img:"https://media.giphy.com/media/efgxbBYWcH0kEt6at0/200.gif",  label:"Krokodil winkt",     cat:"necken" },
   { id:"g2_dinopink",    img:"https://media.giphy.com/media/xfHdU1u88PXPR8NDZI/200.gif",  label:"Neugieriger Dino",   cat:"necken" },
   { id:"g2_dinogruen",   img:"https://media.giphy.com/media/KTMXHrjYN5whhA4JVZ/200.gif",  label:"Frecher Dino",       cat:"necken" },
-  // 💍 Herr der Ringe (harmlos, je per Vision geprüft: kein Kampf/Grusel/Text, HTTP 200)
-  { id:"lotr_hobbitfest",  img:"https://media.giphy.com/media/1xmhhQ2ygZG8CDDTNV/200.gif", label:"Hobbits feiern",       cat:"lotr" },
-  { id:"lotr_feuerwerk",   img:"https://media.giphy.com/media/TItFMjitHcAWLrbfjB/200.gif", label:"Gandalfs Feuerwerk",   cat:"lotr" },
-  { id:"lotr_baumbart",    img:"https://media.giphy.com/media/p6jVTOTBo63qU/200.gif",      label:"Baumbart im Wald",     cat:"lotr" },
-  { id:"lotr_wiedersehen", img:"https://media.giphy.com/media/69iB0zVgoKkatcVDrA/200.gif", label:"Gandalf & Frodo",      cat:"lotr" },
-  { id:"lotr_gimli",       img:"https://media.giphy.com/media/UZZIg8n9nfQa6CPSmD/200.gif", label:"Gimli schaut sich um", cat:"lotr" },
-  { id:"lotr_adler",       img:"https://media.giphy.com/media/auxnDyBPOih5m/200.gif",      label:"Gandalf & der Adler",  cat:"lotr" },
-  { id:"lotr_ring",        img:"https://media.giphy.com/media/t7GDY7UBlW5ha6oF9c/200.gif", label:"Der Eine Ring",        cat:"lotr" },
-  { id:"lotr_pippin",      img:"https://media.giphy.com/media/yNP3zrPHZttw4/200.gif",      label:"Pippin staunt",        cat:"lotr" },
-  { id:"lotr_gollum",      img:"https://media.giphy.com/media/E3B37yfcBiwTK/200.gif",      label:"Gollum guckt",         cat:"lotr" },
   // ⚽ Weitere Fußball-GIFs (GIPHY rating=g, je per Vision geprüft: textfrei/markenarm + HTTP 200)
   { id:"fb2_baelle",     img:"https://media.giphy.com/media/WvuTFk2IN7jxoLVDkP/200.gif", label:"Hüpfende Fußbälle",  cat:"fussball" },
   { id:"fb2_stadion",    img:"https://media.giphy.com/media/12gPd1nqeoyOas/200.gif",     label:"Jubelndes Stadion",  cat:"fussball" },
@@ -1902,8 +1892,8 @@ function renderGifPicker(){
   const cur=myGif();
   const opt=(id,inner,extra)=>`<div class="gifopt${(cur===id)?" sel":""}" data-gif="${id}"${extra||""}>${inner}</div>`;
   let html=`<div class="gifpick">${opt("",'<span class="none">keins</span>')}</div>`;
-  const CATLABEL={jubel:"🎉 Jubel", fail:"😅 Fails (harmlos)", fussball:"⚽ Fußball", laender:"🌍 Länder-Jubel", necken:"😜 Necken & Grüßen", meme:"🎬 Echte GIFs", kult:"📺 80er-Kult", lotr:"💍 Herr der Ringe", spezial:"🧙 Spezial"};
-  ["jubel","fail","fussball","laender","necken","meme","kult","lotr","spezial"].forEach(cat=>{
+  const CATLABEL={jubel:"🎉 Jubel", fail:"😅 Fails (harmlos)", fussball:"⚽ Fußball", laender:"🌍 Länder-Jubel", necken:"😜 Necken & Grüßen", meme:"🎬 Echte GIFs", kult:"📺 80er-Kult", spezial:"🧙 Spezial"};
+  ["jubel","fail","fussball","laender","necken","meme","kult","spezial"].forEach(cat=>{
     const items=GIFS.filter(g=>g.cat===cat);
     if(!items.length) return;
     html+=`<div class="gifcat">${CATLABEL[cat]||cat}</div><div class="gifpick">`;
