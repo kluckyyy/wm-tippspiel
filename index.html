@@ -539,9 +539,9 @@
       <p class="tiny">Die App zieht Endstände automatisch aus offenen WM-Daten – die <b>kostenlose Quelle ist aber oft
         Stunden verspätet</b>. Damit die Auflösung sofort läuft, kannst du den Endstand hier <b>selbst eintragen</b>;
         deine Eingabe gilt sofort für alle und hat Vorrang. Leer lassen = wieder Automatik.</p>
-      <p class="tiny"><b>K.O.-Spiele:</b> Trage den Stand <b>nach Verlängerung</b> ein (ein Unentschieden ist erlaubt). Bei
-        einem Unentschieden erscheint darunter die Auswahl <b>Elfmeterschießen-Sieger</b> – wer ihn richtig getippt hat,
-        bekommt +2 Bonuspunkte.</p>
+      <p class="tiny"><b>K.O.-Spiele:</b> Trage den Stand <b>nach 90 Minuten</b> ein (reguläre Spielzeit – Verlängerung zählt
+        <b>nicht</b>; ein Unentschieden ist erlaubt). Steht es nach 90 Min unentschieden, erscheint darunter die Auswahl
+        <b>Elfmeterschießen-Sieger</b> – wer ihn richtig getippt hat, bekommt +2 Bonuspunkte.</p>
       <div id="resAdmin"></div>
     </div>
     <div class="card">
@@ -1438,7 +1438,7 @@ function renderKnockout(){
   if(!active.length){ if(box.dataset.sig!=="-"){ box.innerHTML=""; box.dataset.sig="-"; } return; }
   const sig=active.map(f=>f.id+":"+f.heim+":"+f.gast+":"+(kickoffTime(f)||0)).join("|");
   if(box.dataset.sig===sig) return;   // Struktur unverändert -> Werte füllt die Haupt-Schleife (kein Tipp-Störer)
-  let html='<div class="card" style="border-color:var(--vermilion); box-shadow:5px 5px 0 var(--vermilion)"><h2 style="margin-bottom:4px">🏆 K.O.-Runde – jetzt zählt\'s!</h2><p class="hint" style="margin-bottom:0">Tippe wie immer das Ergebnis. <b>Wichtig:</b> Tippst du bei einem K.O.-Spiel ein <b>Unentschieden</b>, erscheint darunter eine Auswahl – tippe dann auch, <b>wer im Elfmeterschießen gewinnt</b>. Stimmt es (und das Spiel geht wirklich ins Elfmeterschießen), gibt es <b>+2 Bonuspunkte</b>. K.O.-Ergebnis = Stand nach Verlängerung.</p></div>';
+  let html='<div class="card" style="border-color:var(--vermilion); box-shadow:5px 5px 0 var(--vermilion)"><h2 style="margin-bottom:4px">🏆 K.O.-Runde – jetzt zählt\'s!</h2><p class="hint" style="margin-bottom:0">Tippe wie immer das Ergebnis. <b>Wichtig:</b> Tippst du bei einem K.O.-Spiel ein <b>Unentschieden</b>, erscheint darunter eine Auswahl – tippe dann auch, <b>wer im Elfmeterschießen gewinnt</b>. Stimmt es (und das Spiel geht wirklich ins Elfmeterschießen), gibt es <b>+2 Bonuspunkte</b>. Gewertet wird der Stand nach <b>90 Minuten</b> (Verlängerung zählt nicht).</p></div>';
   KO_ROUNDS.forEach(r=>{
     const games=active.filter(f=>f.round===r.round);
     if(!games.length) return;
@@ -1522,7 +1522,7 @@ function renderNext(){
   const koHint=document.getElementById("koTipHint");
   if(koHint){ const koPhase=FIXTURES.some(f=>f.phase==="ko" && koActive(f));
     koHint.classList.toggle("show", koPhase);
-    if(koPhase && koHint.dataset.set!=="1"){ koHint.innerHTML='🥅 <b>K.O.-Runde:</b> Tippst du ein <b>Unentschieden</b>, erscheint direkt darunter eine Auswahl – tippe dann auch, <b>wer im Elfmeterschießen gewinnt</b>. Richtig getippt = <b>+2 Bonuspunkte</b>! (K.O.-Ergebnis zählt der Stand nach Verlängerung.)'; koHint.dataset.set="1"; } }
+    if(koPhase && koHint.dataset.set!=="1"){ koHint.innerHTML='🥅 <b>K.O.-Runde:</b> Tippst du ein <b>Unentschieden</b>, erscheint direkt darunter eine Auswahl – tippe dann auch, <b>wer im Elfmeterschießen gewinnt</b>. Richtig getippt = <b>+2 Bonuspunkte</b>! (Gewertet wird der Stand nach 90 Minuten – Verlängerung zählt nicht.)'; koHint.dataset.set="1"; } }
   const up=nextFixtures(FIXTURES, now(), NEXT_COUNT);
   if(!up.length){
     const haveTimes=FIXTURES.some(f=>kickoffTime(f)!=null);
