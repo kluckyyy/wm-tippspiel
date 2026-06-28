@@ -151,6 +151,35 @@
   .res-nm{font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.03em}
   .res-src{font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 7px; border-radius:999px; border:2px solid currentColor; white-space:nowrap}
   .res-src.ov{color:var(--green)} .res-src.auto{color:var(--ink-soft)} .res-src.none{color:var(--vermilion)}
+  /* K.O.-Blöcke optisch von den Gruppen abheben (rote statt grüne Kopfzeile) */
+  .grpwrap.ko .grphead{background:var(--vermilion)}
+  /* Elfmeter-Bonus-Picker (Schüler, im K.O.-Match bei Unentschieden-Tipp) */
+  .penpick{margin-top:9px}
+  .penpick:empty{margin-top:0}
+  .penpick .pp-q{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); margin:0 0 6px}
+  .penpick .pp-opts{display:flex; gap:8px}
+  .penpick .pp-btn{flex:1; display:flex; align-items:center; justify-content:center; gap:7px; cursor:pointer; font-family:var(--font-body); font-weight:800; font-size:13px; color:var(--ink); padding:8px 6px; background:var(--paper); border:2.5px solid var(--ink); border-radius:9px; box-shadow:2px 2px 0 var(--ink); transition:transform .08s, box-shadow .08s}
+  .penpick .pp-btn:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--ink)}
+  .penpick .pp-btn.sel{background:var(--yellow); box-shadow:2px 2px 0 var(--vermilion)}
+  .penpick .pp-btn .flagimg{width:22px} .penpick .pp-btn .flag-emo{font-size:18px}
+  .penpick .pp-done{display:flex; align-items:center; gap:7px; font-size:12px; font-weight:800; color:var(--ink-soft)}
+  .penpick .pp-done.ok{color:var(--green)} .penpick .pp-done.bad{color:var(--vermilion)}
+  .penpick .pp-done .flagimg{width:20px} .penpick .pp-done .flag-emo{font-size:16px}
+  /* Lehrer: Elfer-Sieger-Eingabe in der Ergebnis-Card */
+  .res-pen{display:flex; flex-wrap:wrap; align-items:center; gap:6px; width:100%; margin-top:6px; padding-top:7px; border-top:1.5px dotted var(--paper-deep)}
+  .res-pen-q{font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; color:var(--ink-soft)}
+  .res-pen .rp-btn{width:auto} .res-pen .rp-btn.sel{background:var(--yellow); box-shadow:3px 3px 0 var(--vermilion)}
+  /* Lehrer: K.O.-Runden verwalten */
+  .ko-row{display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:9px 0; border-bottom:1.5px dashed var(--paper-deep)}
+  .ko-row:last-child{border-bottom:0}
+  .ko-rl{width:100%; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft)}
+  .ko-pair{display:flex; align-items:center; gap:6px; flex:1; min-width:180px}
+  select.ko-sel{flex:1; min-width:0; padding:8px 9px; font-size:13px}
+  .ko-colon{font-weight:800; font-size:16px}
+  .ko-dt{background:var(--paper); border:2.5px solid var(--ink); border-radius:9px; padding:7px 9px; font-family:var(--font-body); font-weight:600; font-size:12px; color:var(--ink)}
+  .ko-clear{flex:none}
+  .ko-src{font-weight:800; font-size:9.5px; letter-spacing:.04em; color:var(--ink-soft); text-transform:none}
+  .ko-row select:disabled, .ko-row .ko-dt:disabled, .ko-row .ko-clear:disabled{opacity:.5}
 
   /* Jubel-GIFs & Fails (Top-10-Belohnung) – kuratierte, selbst-animierte Sticker (kindgerecht, offline, keine Fremd-Links).
      Klassen sind nach BEWEGUNG benannt (nicht pro Sticker), damit viele Emojis dieselbe Animation teilen. */
@@ -402,10 +431,11 @@
       </div>
       <div class="card" id="nextCard">
         <h2 style="margin-bottom:4px">⏱️ Als Nächstes</h2>
-        <p class="hint" style="margin-bottom:12px">Tippe von Spiel zu Spiel – <b>bis zur letzten Sekunde</b> vor Anpfiff. Alle 72 Spiele findest du darunter.</p>
+        <p class="hint" style="margin-bottom:12px">Tippe von Spiel zu Spiel – <b>bis zur letzten Sekunde</b> vor Anpfiff. Alle Spiele findest du darunter.</p>
         <div id="nextList"></div>
       </div>
       <div id="groups"></div>
+      <div id="knockout"></div>
 
       <div class="card" id="submitCard">
         <button class="btn" id="checkBtn">✅ Tipps prüfen</button>
@@ -503,7 +533,20 @@
       <p class="tiny">Die App zieht Endstände automatisch aus offenen WM-Daten – die <b>kostenlose Quelle ist aber oft
         Stunden verspätet</b>. Damit die Auflösung sofort läuft, kannst du den Endstand hier <b>selbst eintragen</b>;
         deine Eingabe gilt sofort für alle und hat Vorrang. Leer lassen = wieder Automatik.</p>
+      <p class="tiny"><b>K.O.-Spiele:</b> Trage den Stand <b>nach Verlängerung</b> ein (ein Unentschieden ist erlaubt). Bei
+        einem Unentschieden erscheint darunter die Auswahl <b>Elfmeterschießen-Sieger</b> – wer ihn richtig getippt hat,
+        bekommt +2 Bonuspunkte.</p>
       <div id="resAdmin"></div>
+    </div>
+    <div class="card">
+      <h2>🏆 K.O.-Runden (automatisch)</h2>
+      <p class="hint"><b>Läuft automatisch:</b> Anpfiffzeiten stehen fest, und sobald du die Ergebnisse einträgst, füllt die App
+        die Paarungen selbst – das Sechzehntelfinale aus den Gruppentabellen, die weiteren Runden aus den Siegern (bei
+        Unentschieden zählt der Elfer-Sieger). Du musst hier <b>normalerweise nichts tun</b>.</p>
+      <p class="tiny">Korrektur nur bei Bedarf: Die Zuordnung der <b>8 besten Gruppendritten</b> und Gleichstände nach
+        Direktvergleich/Fairplay/Los kann die App nicht immer exakt treffen. Stimmt eine Paarung nicht mit dem echten Spielplan,
+        stell sie hier um – deine Korrektur hat Vorrang und fließt in die Folgerunden ein. „↺ Auto" setzt sie wieder auf automatisch.</p>
+      <div id="koAdmin"></div>
     </div>
   </section>
 </main>
@@ -534,6 +577,7 @@ const RESULTS_URL = "https://raw.githubusercontent.com/openfootball/worldcup.jso
 const RESULTS_POLL_MS = 90000;
 const PUNKTE = { exakt:4, diff:3, tendenz:2 };
 const CHAMP_BONUS = 8;   // Extrapunkte für den richtig getippten Weltmeister (Tipp muss VOR Anpfiff des 1. Spiels stehen)
+const PEN_BONUS = 2;     // Bonus für den richtig getippten Elfmeterschießen-Sieger (nur K.O.-Spiele, nur wenn es wirklich ein Elfmeterschießen gab)
 const RULES_VERSION = "1";   // hochzählen, wenn die Regeln geändert werden -> alle müssen neu bestätigen
 
 /* ================= TEAMS / GRUPPEN ================= */
@@ -589,11 +633,68 @@ function buildFixtures(){
   }
   return out;
 }
-const FIXTURES = buildFixtures();
+// K.O.-Runden (anfangs leeres Gerüst): 32 Spiele, heim/gast/Anpfiff werden vom Lehrer rollierend pro Runde eingetragen
+// (state/ko/<id>). Erst dann sind sie sichtbar+tippbar (koActive). phase:"ko" unterscheidet sie von den Gruppenspielen.
+const KO_ROUNDS = [
+  {round:"R32", name:"Sechzehntelfinale", n:16},
+  {round:"R16", name:"Achtelfinale",      n:8},
+  {round:"QF",  name:"Viertelfinale",     n:4},
+  {round:"SF",  name:"Halbfinale",        n:2},
+  {round:"P3",  name:"Spiel um Platz 3",  n:1},
+  {round:"F",   name:"Finale",            n:1}
+];
+function buildKO(){
+  const out=[];
+  for(const r of KO_ROUNDS) for(let i=1;i<=r.n;i++)
+    out.push({ id:r.round+"-"+i, phase:"ko", round:r.round, roundName:r.name, gruppe:r.name, st:0, heim:"", gast:"" });
+  return out;
+}
+const GROUP_FIXTURES = buildFixtures();
+const FIXTURES = GROUP_FIXTURES.concat(buildKO());
 const FIXBYID = {}; FIXTURES.forEach(f=>FIXBYID[f.id]=f);
-// Index: Paar-Token (sortiert) -> fixture
+// Index: Paar-Token (sortiert) -> fixture. NUR Gruppenspiele – sonst würden leere K.O.-Paare ("|") kollidieren
+// und das Auto-Ergebnis-Parsing der Gruppenphase vergiften.
 const FIXBYPAIR = {};
-FIXTURES.forEach(f=>{ FIXBYPAIR[[f.heim,f.gast].sort().join("|")]=f; });
+GROUP_FIXTURES.forEach(f=>{ FIXBYPAIR[[f.heim,f.gast].sort().join("|")]=f; });
+
+/* ===== K.O.-AUTOMATIK: gebackene Referenzdaten (offizieller WM-2026-Spielplan) =====
+   Quellen: Anpfiffzeiten/Bracket-Baum aus openfootball/worldcup.json 2026; R32-Slot-Struktur aus den
+   offiziellen FIFA-Regularien (Wikipedia „2026 FIFA World Cup knockout stage"). Diese Werte sind FEST. */
+// Anpfiffzeiten je K.O.-Spiel (Stadion-Ortszeit mit UTC-Offset, wie bei den Gruppenspielen).
+const KO_SCHEDULE = {
+ "R32-1":{d:"2026-06-28",t:"12:00 UTC-7"},"R32-2":{d:"2026-06-29",t:"16:30 UTC-4"},"R32-3":{d:"2026-06-29",t:"19:00 UTC-6"},"R32-4":{d:"2026-06-29",t:"12:00 UTC-5"},
+ "R32-5":{d:"2026-06-30",t:"17:00 UTC-4"},"R32-6":{d:"2026-06-30",t:"12:00 UTC-5"},"R32-7":{d:"2026-06-30",t:"19:00 UTC-6"},"R32-8":{d:"2026-07-01",t:"12:00 UTC-4"},
+ "R32-9":{d:"2026-07-01",t:"17:00 UTC-7"},"R32-10":{d:"2026-07-01",t:"13:00 UTC-7"},"R32-11":{d:"2026-07-02",t:"19:00 UTC-4"},"R32-12":{d:"2026-07-02",t:"12:00 UTC-7"},
+ "R32-13":{d:"2026-07-02",t:"20:00 UTC-7"},"R32-14":{d:"2026-07-03",t:"18:00 UTC-4"},"R32-15":{d:"2026-07-03",t:"20:30 UTC-5"},"R32-16":{d:"2026-07-03",t:"13:00 UTC-5"},
+ "R16-1":{d:"2026-07-04",t:"17:00 UTC-4"},"R16-2":{d:"2026-07-04",t:"12:00 UTC-5"},"R16-3":{d:"2026-07-05",t:"16:00 UTC-4"},"R16-4":{d:"2026-07-05",t:"18:00 UTC-6"},
+ "R16-5":{d:"2026-07-06",t:"14:00 UTC-5"},"R16-6":{d:"2026-07-06",t:"17:00 UTC-7"},"R16-7":{d:"2026-07-07",t:"12:00 UTC-4"},"R16-8":{d:"2026-07-07",t:"13:00 UTC-7"},
+ "QF-1":{d:"2026-07-09",t:"16:00 UTC-4"},"QF-2":{d:"2026-07-10",t:"12:00 UTC-7"},"QF-3":{d:"2026-07-11",t:"17:00 UTC-4"},"QF-4":{d:"2026-07-11",t:"20:00 UTC-5"},
+ "SF-1":{d:"2026-07-14",t:"14:00 UTC-5"},"SF-2":{d:"2026-07-15",t:"15:00 UTC-4"},"P3-1":{d:"2026-07-18",t:"17:00 UTC-4"},"F-1":{d:"2026-07-19",t:"15:00 UTC-4"}
+};
+// R32-Slot-Struktur: home/away = Gruppenplatz (1X=Sieger, 2X=Zweiter Gruppe X); third = Kandidaten-Gruppen für den besten Dritten.
+const KO_R32 = {
+ "R32-1":{home:"2A",away:"2B"}, "R32-2":{home:"1E",third:["A","B","C","D","F"]},
+ "R32-3":{home:"1F",away:"2C"}, "R32-4":{home:"1C",away:"2F"},
+ "R32-5":{home:"1I",third:["C","D","F","G","H"]}, "R32-6":{home:"2E",away:"2I"},
+ "R32-7":{home:"1A",third:["C","E","F","H","I"]}, "R32-8":{home:"1L",third:["E","H","I","J","K"]},
+ "R32-9":{home:"1D",third:["B","E","F","I","J"]}, "R32-10":{home:"1G",third:["A","E","H","I","J"]},
+ "R32-11":{home:"2K",away:"2L"}, "R32-12":{home:"1H",away:"2J"},
+ "R32-13":{home:"1B",third:["E","F","G","I","J"]}, "R32-14":{home:"1J",away:"2H"},
+ "R32-15":{home:"1K",third:["D","E","I","J","L"]}, "R32-16":{home:"2D",away:"2G"}
+};
+const KO_THIRD_SLOTS = Object.keys(KO_R32).filter(id=>KO_R32[id].third);
+// Bracket-Baum ab Achtelfinale: id -> [[Quelle,SpielId],[Quelle,SpielId]] mit Quelle "W"=Sieger / "L"=Verlierer.
+const KO_TREE = {
+ "R16-1":[["W","R32-2"],["W","R32-5"]], "R16-2":[["W","R32-1"],["W","R32-3"]],
+ "R16-3":[["W","R32-4"],["W","R32-6"]], "R16-4":[["W","R32-7"],["W","R32-8"]],
+ "R16-5":[["W","R32-11"],["W","R32-12"]], "R16-6":[["W","R32-9"],["W","R32-10"]],
+ "R16-7":[["W","R32-14"],["W","R32-16"]], "R16-8":[["W","R32-13"],["W","R32-15"]],
+ "QF-1":[["W","R16-1"],["W","R16-2"]], "QF-2":[["W","R16-5"],["W","R16-6"]],
+ "QF-3":[["W","R16-3"],["W","R16-4"]], "QF-4":[["W","R16-7"],["W","R16-8"]],
+ "SF-1":[["W","QF-1"],["W","QF-2"]], "SF-2":[["W","QF-3"],["W","QF-4"]],
+ "P3-1":[["L","SF-1"],["L","SF-2"]], "F-1":[["W","SF-1"],["W","SF-2"]]
+};
+function groupLetterOf(tk){ for(const g in GROUPS) if(GROUPS[g].indexOf(tk)>=0) return g; return null; }
 
 /* ================= ERGEBNISSE (openfootball) ================= */
 // results: { fixtureId: [heimTore, gastTore] }  – im Sinne der FIXTURE-Heim/Gast-Reihenfolge
@@ -602,6 +703,10 @@ function parseResults(json){
   const matches=(json&&json.matches)||[];
   for(const m of matches){
     if(!m||!m.team1||!m.team2) continue;
+    // K.O.-Partien aus der Auto-Quelle überspringen: sie laufen bewusst über manuelle Eingaben (state/ko + Overrides).
+    // Schutz, falls zwei Teams DERSELBEN Gruppe später im K.O. erneut spielen – sonst überschriebe ihr K.O.-Ergebnis
+    // versehentlich das Gruppenspiel (FIXBYPAIR ist gruppen-only).
+    if(/\b(round of|achtelfinale|sechzehntelfinale|viertelfinale|halbfinale|quarter|semi|third|final|finale|k\.?o\.?|knockout|play-?off)\b/i.test(m.round||"")) continue;
     const t1=normTeam(m.team1), t2=normTeam(m.team2);
     const f=FIXBYPAIR[[t1,t2].sort().join("|")];
     if(!f) continue;
@@ -664,13 +769,142 @@ const LS=(k,v)=>{ try{ if(v===undefined) return localStorage.getItem(k); localSt
 let MODE="local";            // 'fire' | 'local'
 let ROOM=null, ADMIN=false, ADMINTOKEN=null;
 let MYPID = LS("wmt_pid"); if(!MYPID){ MYPID="p"+Math.random().toString(36).slice(2,10); LS("wmt_pid",MYPID); }
-let me = { name: LS("wmt_name")||"", tips: loadTipsLS(), gif: LS("wmt_gif")||"", champ: LS("wmt_champ")||"" };
+let me = { name: LS("wmt_name")||"", tips: loadTipsLS(), gif: LS("wmt_gif")||"", champ: LS("wmt_champ")||"", kopen: loadKopenLS() };
 let players = {};            // pid -> {name,tips}
 let roomState = { locked:false };
 let results = {};            // fixtureId -> [h,g]  (effektiv: Auto-Quelle + manuelle Overrides; Override gewinnt)
 let autoResults = {};        // nur die automatisch geladenen Endstände (openfootball) – ohne Overrides
 // Effektive Ergebnisse neu zusammensetzen: Auto-Quelle als Basis, Lehrer-Overrides (state/overrides) on top.
-function recomputeResults(){ results = Object.assign({}, autoResults, manualOverrides()); }
+// ERST results setzen, DANN applyKO() – die K.O.-Automatik (Tabellen/Sieger-Weiterrücken) liest die frischen Ergebnisse.
+function recomputeResults(){ results = Object.assign({}, autoResults, manualOverrides()); applyKO(); }
+
+/* ================= K.O.-RUNDEN (rollierende Freischaltung) =================
+   Die K.O.-Spiele stehen als leeres Gerüst in FIXTURES (phase:"ko"). Der Lehrer trägt pro Runde Paarung+Anpfiff
+   ein (state/ko/<id>={heim,gast,kickoff-ms}); erst dann sind sie sichtbar (koActive) und durchlaufen denselben
+   Tipp-/Lock-/Wertungs-Pfad wie Gruppenspiele. Anpfiff wird als absolute ms gespeichert (zeitzonen-/DST-sicher). */
+// Anpfiff-ms eines K.O.-Spiels aus dem festen Spielplan (Stadion-Ortszeit -> UTC).
+function scheduleMs(id){
+  const s=KO_SCHEDULE[id]; if(!s) return null;
+  const tm=s.t.match(/(\d{1,2}):(\d{2})/); if(!tm) return null;
+  let off=0; const om=s.t.match(/UTC([+-]?\d+)/); if(om&&om[1]!==undefined) off=parseInt(om[1],10)||0;
+  const [y,mo,d]=s.d.split("-").map(Number);
+  return Date.UTC(y,mo-1,d,+tm[1],+tm[2])-off*3600000;
+}
+// Tabelle einer Gruppe aus den Ergebnissen: Sieger/Zweiter/Dritter. null wenn noch nicht alle 6 Spiele ein Ergebnis haben.
+// Tie-Break: Punkte -> Tordifferenz -> Tore -> (Name). Direktvergleich/Fairplay/Los NICHT abbildbar (Lehrer korrigiert ggf.).
+function groupStanding(g){
+  const fx=GROUP_FIXTURES.filter(f=>f.gruppe==="Gruppe "+g);
+  if(!fx.every(f=>results[f.id])) return null;
+  const tk=GROUPS[g], st={}; tk.forEach(t=>st[t]={t,pts:0,gf:0,ga:0});
+  fx.forEach(f=>{ const r=results[f.id], h=r[0], a=r[1]; st[f.heim].gf+=h; st[f.heim].ga+=a; st[f.gast].gf+=a; st[f.gast].ga+=h;
+    if(h>a) st[f.heim].pts+=3; else if(a>h) st[f.gast].pts+=3; else { st[f.heim].pts++; st[f.gast].pts++; } });
+  const arr=tk.map(t=>({t,pts:st[t].pts,gf:st[t].gf,gd:st[t].gf-st[t].ga}));
+  arr.sort((x,y)=> y.pts-x.pts||y.gd-x.gd||y.gf-x.gf||x.t.localeCompare(y.t));
+  return { g, win:arr[0].t, run:arr[1].t, third:arr[2] };
+}
+function allStandings(){ const o={}; for(const g of Object.keys(GROUPS)){ const s=groupStanding(g); if(!s) return null; o[g]=s; } return o; }
+// Die 8 besten Dritten den 8 Dritt-Slots zuordnen (Kandidatenlisten = Rematch-Schutz). Gültiges Matching, deterministisch.
+// HINWEIS: FIFAs exakte 495er-Tabelle (Annex C) ist nicht öffentlich maschinenlesbar -> dies ist ein KORREKTES, aber evtl.
+// nicht FIFA-identisches Matching. Bei Abweichung korrigiert der Lehrer die Paarung (manueller Override sticht).
+function matchThirds(qualG){
+  const cand={}; KO_THIRD_SLOTS.forEach(s=>cand[s]=KO_R32[s].third.filter(g=>qualG.has(g)));
+  const order=KO_THIRD_SLOTS.slice().sort((a,b)=>cand[a].length-cand[b].length||a.localeCompare(b));
+  const used=new Set(), res={};
+  (function bt(i){ if(i===order.length) return true; const s=order[i];
+    for(const g of cand[s]){ if(used.has(g)) continue; used.add(g); res[s]=g; if(bt(i+1)) return true; used.delete(g); delete res[s]; } return false; })(0);
+  return res;
+}
+// Sechzehntelfinal-Paarungen aus den Gruppentabellen. {} wenn noch nicht alle Gruppen fertig.
+function computeR32(){
+  const stand=allStandings(); if(!stand) return {};
+  const thirds=Object.keys(GROUPS).map(g=>({g,pts:stand[g].third.pts,gd:stand[g].third.gd,gf:stand[g].third.gf}));
+  thirds.sort((a,b)=> b.pts-a.pts||b.gd-a.gd||b.gf-a.gf||a.g.localeCompare(b.g));
+  const qualG=new Set(thirds.slice(0,8).map(t=>t.g));
+  const assign=matchThirds(qualG);
+  const pos=c=>{ const n=+c[0], g=c.slice(1); return n===1?stand[g].win:n===2?stand[g].run:stand[g].third.t; };
+  const out={};
+  for(const id in KO_R32){ const d=KO_R32[id]; const home=pos(d.home);
+    let away; if(d.away) away=pos(d.away); else { const g=assign[id]; away=g?stand[g].third.t:null; }
+    if(home&&away) out[id]={heim:home,gast:away}; }
+  return out;
+}
+// Sieger ("W") bzw. Verlierer ("L") eines K.O.-Spiels aus Ergebnis (+ Elfer-Sieger bei Unentschieden). null wenn unentschieden.
+function teamWL(id, comp, which){
+  const p=comp[id]; if(!p) return null; const r=results[id]; if(!r) return null;
+  let win; if(r[0]>r[1]) win=p.heim; else if(r[1]>r[0]) win=p.gast;
+  else { const pw=roomState&&roomState.penwin&&roomState.penwin[id]; win=(pw===p.heim||pw===p.gast)?pw:null; }
+  if(!win) return null; return which==="W"? win : (win===p.heim?p.gast:p.heim);
+}
+// Komplette automatische K.O.-Paarungen: R32 aus Gruppentabellen, danach jede Runde aus Sieger/Verlierer der Vorrunde.
+// Manueller Override (state/ko) sticht pro Spiel und fließt in die Folgerunden ein.
+function computeKO(){
+  const comp={}; Object.assign(comp, computeR32());
+  const man=(roomState&&roomState.ko)||{};
+  for(const id in man){ const k=man[id]; if(k&&k.heim&&k.gast) comp[id]={heim:k.heim,gast:k.gast}; }   // Korrektur vor R16-Berechnung
+  ["R16","QF","SF","P3","F"].forEach(rd=>{
+    for(const id in KO_TREE){ if(id.slice(0,id.lastIndexOf("-"))!==rd) continue;
+      const man2=man[id];
+      if(man2&&man2.heim&&man2.gast){ comp[id]={heim:man2.heim,gast:man2.gast}; continue; }
+      const t=KO_TREE[id]; const h=teamWL(t[0][1],comp,t[0][0]), a=teamWL(t[1][1],comp,t[1][0]);
+      if(h&&a) comp[id]={heim:h,gast:a}; }
+  });
+  return comp;
+}
+// FIXTURES+fixMeta mit den effektiven K.O.-Paarungen+Anpfiffzeiten füllen. Reihenfolge: manueller Override > Automatik.
+function applyKO(){
+  const comp=computeKO();
+  const man=(roomState&&roomState.ko)||{};
+  for(const f of FIXTURES){
+    if(f.phase!=="ko") continue;
+    const k=man[f.id];
+    let heim="",gast="";
+    if(k && k.heim && k.gast){ heim=k.heim; gast=k.gast; }        // manuelle Korrektur sticht
+    else if(comp[f.id]){ heim=comp[f.id].heim; gast=comp[f.id].gast; }   // Automatik
+    let kms=(k && typeof k.kickoff==="number" && isFinite(k.kickoff))? k.kickoff : scheduleMs(f.id);
+    if(heim && gast){ f.heim=heim; f.gast=gast; fixMeta[f.id]={ round:f.roundName, kickoffMs:(typeof kms==="number"?kms:null) }; }
+    else { f.heim=""; f.gast=""; delete fixMeta[f.id]; }
+  }
+}
+// Eine K.O.-Partie ist "aktiv" (sichtbar+tippbar), sobald ihre Paarung feststeht (Automatik ODER manuell) – applyKO setzt heim/gast.
+function koActive(f){ return f.phase==="ko" && !!(f.heim && f.gast); }
+function isVisible(f){ return f.phase!=="ko" || koActive(f); }
+function activeFixtures(){ return FIXTURES.filter(isVisible); }
+// Lehrer: K.O.-Paarung + Anpfiff setzen (oder mit leeren Teams wieder entfernen). Partieller Write, sofort lokal gespiegelt.
+function setKoSlot(fid, heim, gast, kickoffMs){
+  const f=FIXBYID[fid]; if(!f || f.phase!=="ko") return;
+  const val=(heim&&gast)? { heim, gast, kickoff:(typeof kickoffMs==="number"&&isFinite(kickoffMs))?kickoffMs:null } : null;
+  if(MODE==="fire"){
+    const ref=rref("state/ko/"+fid);
+    (val? ref.set(val) : ref.remove()).catch(()=>{});
+  }
+  roomState.ko=roomState.ko||{}; if(val) roomState.ko[fid]=val; else delete roomState.ko[fid];
+  recomputeResults(); renderAll();
+}
+// Elfmeter-Tipp/-Ergebnis: nur eine der beiden Mannschaften der Partie ist gültig (tolerant gegen Re-Paarung).
+function penValid(fid, tk){ const f=FIXBYID[fid]; if(!f||f.phase!=="ko") return ""; return (tk===f.heim||tk===f.gast)?tk:""; }
+// Tatsächlicher Elfmeterschießen-Sieger (vom Lehrer gesetzt, state/penwin/<id>); leer = es gab keins / noch nicht gesetzt.
+function penWinOf(fid){ const v=roomState&&roomState.penwin&&roomState.penwin[fid]; return penValid(fid, v); }
+function setPenWin(fid, tk){
+  const f=FIXBYID[fid]; if(!f || f.phase!=="ko") return;
+  tk=(tk===f.heim||tk===f.gast)? tk : "";
+  if(MODE==="fire"){ const ref=rref("state/penwin/"+fid); (tk? ref.set(tk) : ref.remove()).catch(()=>{}); }
+  roomState.penwin=roomState.penwin||{}; if(tk) roomState.penwin[fid]=tk; else delete roomState.penwin[fid];
+  recomputeResults(); renderAll();   // Elfer-Sieger entscheidet bei Unentschieden -> Bracket sofort nachrücken
+}
+// Elfmeter-Bonus eines Spielers: +PEN_BONUS je K.O.-Spiel, in dem es ein Elfmeterschießen gab (penWin gesetzt)
+// UND sein Elfer-Tipp den Sieger trifft.
+function penBonusFor(kopen){
+  if(!kopen) return 0;
+  const pw=(roomState&&roomState.penwin)||{}; let b=0;
+  for(const fid in pw){ const win=penValid(fid, pw[fid]); if(!win) continue; if(kopen[fid]===win) b+=PEN_BONUS; }
+  return b;
+}
+// ms -> Wert für <input type="datetime-local"> in LOKALER Zeit (Lehrer-Gerät = Deutschland).
+function msToLocalInput(ms){
+  if(typeof ms!=="number"||!isFinite(ms)) return "";
+  const d=new Date(ms), p=n=>String(n).padStart(2,"0");
+  return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"T"+p(d.getHours())+":"+p(d.getMinutes());
+}
 let db=null, fbOk=false, hydrated=false;
 
 /* ---- URL: #r=ROOM&a=TOKEN ---- */
@@ -738,6 +972,7 @@ function attachListeners(){
     // Beim ERSTEN Sync Server-Tipps mit den lokalen mergen – LOKAL gewinnt bei Konflikt (dieses Gerät ist Autor
     // seiner Tipps; so gehen offline getippte Änderungen nicht verloren). Danach ist das lokale Gerät alleiniger Autor.
     if(!hydrated && players[MYPID] && players[MYPID].tips){ me.tips=Object.assign({}, players[MYPID].tips, me.tips); saveTipsLS(); }
+    if(!hydrated && players[MYPID] && players[MYPID].kopen){ me.kopen=Object.assign({}, players[MYPID].kopen, me.kopen); saveKopenLS(); }
     const wasHydrated=hydrated; hydrated=true; scheduleRender();   // gebündelt rendern: viele Tipp-Events = EIN Render pro Frame
     if(!wasHydrated) resyncTips();   // einmal nach dem ersten Sync: lokale (evtl. offline) Tipps sicher zum Server spiegeln
   });
@@ -825,12 +1060,16 @@ async function recoverPlayer(oldPid){
   me.tips=Object.assign({}, op.tips||{}); saveTipsLS();
   me.gif=gifValid(op.gif); LS("wmt_gif", me.gif);
   me.champ=champValid(op.champ); LS("wmt_champ", me.champ);
+  me.kopen=Object.assign({}, op.kopen||{}); saveKopenLS();
   hydrated=true;
   return {ok:true};
 }
 // Lokaler Sicherungs-Cache der eigenen Tipps (auch Teil-Tipps) – damit ein Zwischenstand nie verloren geht.
 function loadTipsLS(){ try{ return JSON.parse(LS("wmt_tips")||"{}")||{}; }catch(e){ return {}; } }
 function saveTipsLS(){ try{ LS("wmt_tips", JSON.stringify(me.tips)); }catch(e){} }
+// Lokaler Cache der eigenen Elfmeter-Tipps (K.O.): { fixtureId: team-token }.
+function loadKopenLS(){ try{ return JSON.parse(LS("wmt_kopen")||"{}")||{}; }catch(e){ return {}; } }
+function saveKopenLS(){ try{ LS("wmt_kopen", JSON.stringify(me.kopen||{})); }catch(e){} }
 function pushTip(id, val){
   if(players[MYPID] && players[MYPID].removed) return;   // entfernte/gesperrte Spieler tippen nicht
   me.tips[id]=val;
@@ -963,7 +1202,9 @@ const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const flag=tk=>(TEAMS[tk]&&TEAMS[tk].fl)||"⚽"; const nameDE=tk=>(TEAMS[tk]&&TEAMS[tk].de)||tk;
 // Anpfiff-Zeitpunkt eines Spiels als ms (oder null wenn unbekannt).
-function kickoffTime(f){ const m=fixMeta[f.id]; if(!m||!m.date) return null; try{
+function kickoffTime(f){ const m=fixMeta[f.id]; if(!m) return null;
+  if(typeof m.kickoffMs==="number" && isFinite(m.kickoffMs)) return m.kickoffMs;   // K.O.: absolute Anpfiffzeit (vom Lehrer)
+  if(!m.date) return null; try{
   const tm=(m.time||"").match(/(\d{1,2}):(\d{2})/); if(!tm) return null;   // ohne Uhrzeit unbekannt
   let off=0; const om=(m.time||"").match(/UTC([+-]?\d+)/); if(om&&om[1]!==undefined) off=parseInt(om[1],10)||0;
   const [y,mo,d]=m.date.split("-").map(Number);
@@ -1049,6 +1290,18 @@ function setMyChamp(tk){
   else { players[MYPID]={...(players[MYPID]||{name:me.name,tips:me.tips}), champ:tk}; }
   renderChampPick(); renderBoard();
 }
+// Eigener Elfmeterschießen-Tipp für ein K.O.-Spiel (nur sinnvoll bei Unentschieden-Tipp). Quelle: players/<pid>/kopen/<id>.
+function myPen(fid){ const v=(MODE==="fire")? (players[MYPID]&&players[MYPID].kopen&&players[MYPID].kopen[fid]) : (me.kopen&&me.kopen[fid]); return penValid(fid, v); }
+function setMyPen(fid, tk){
+  const f=FIXBYID[fid]; if(!f || f.phase!=="ko") return;
+  if(isLocked(f)) return;                                                 // nach Anpfiff nicht mehr änderbar
+  if(MODE==="fire" && players[MYPID] && players[MYPID].removed) return;   // entfernte Spieler tippen nicht
+  tk=penValid(fid, tk);
+  me.kopen=me.kopen||{}; if(tk) me.kopen[fid]=tk; else delete me.kopen[fid]; saveKopenLS();
+  if(MODE==="fire"){ rref("players/"+MYPID+"/kopen/"+fid).set(tk||null).catch(()=>{}); }   // Leaf-Write: additiv
+  else { players[MYPID]={...(players[MYPID]||{name:me.name,tips:me.tips}), kopen:me.kopen}; }
+  renderBoard();
+}
 // Tatsächlicher Weltmeister (vom Lehrer gesetzt, sobald er feststeht).
 function actualChampion(){ return champValid(roomState&&roomState.champion); }
 function setActualChampion(tk){
@@ -1060,9 +1313,9 @@ let toastT; function toast(m,err){ const t=$("#toast"); t.textContent=m; t.class
 async function copyText(t){ try{ await navigator.clipboard.writeText(t); return true; }catch(e){ try{const a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();document.execCommand("copy");a.remove();return true;}catch(e2){return false;} } }
 
 function renderHeader(){
-  const done=Object.keys(results).length;
+  const done=Object.keys(results).length, tot=activeFixtures().length;
   $("#appSub").textContent = MODE==="fire"
-     ? (Object.keys(players).length+" Mitspieler · "+done+"/72 gewertet")
+     ? (Object.keys(players).length+" Mitspieler · "+done+"/"+tot+" gewertet")
      : "Vorschau-Modus (ohne Live-Sync)";
   $("#kicker").textContent = ADMIN? "Lehrer-Ansicht · Live" : "Klassen-Tippspiel · Live";
 }
@@ -1084,6 +1337,7 @@ function renderTippen(){
 
   const box=$("#groups");
   if(!box.dataset.built){ buildGroups(box); box.dataset.built="1"; }
+  renderKnockout();   // freigeschaltete K.O.-Spiele unter den Gruppen (Markup mit denselben IDs -> Schleife unten füllt sie)
   let got=0;
   for(const f of FIXTURES){
     const tip=me.tips[f.id]; const t=parseTip(tip); const [ph,pg]=tipParts(tip);
@@ -1104,19 +1358,26 @@ function renderTippen(){
       const mt=fixMeta[f.id];
       let s="";
       if(r){ s='Endstand <b>'+r[0]+':'+r[1]+'</b>'+(t?(' · dein Tipp <span class="mine">'+t[0]+':'+t[1]+'</span>'):' · <span class="mine">nicht getippt</span> (zählt nicht)'); }
-      else if(mt&&mt.date) s=fmtKick(mt);
+      else if(mt) s=fmtKick(mt);
       resEl.innerHTML=s;
     }
+    if(f.phase==="ko") updatePenPicker(f);   // Elfmeter-Bonus-Picker (nur K.O., nur bei Unentschieden-Tipp sichtbar)
   }
-  $("#tipCount").textContent=got+" / 72 getippt";
-  $("#progBar").style.width=(got/72*100)+"%";
+  const tot=activeFixtures().length;
+  $("#tipCount").textContent=got+" / "+tot+" getippt";
+  $("#progBar").style.width=(tot?got/tot*100:0)+"%";
   renderNext();
   renderChampPick();
 }
 function fmtDate(iso){ try{ const [y,m,d]=iso.split("-"); return d+"."+m+"."; }catch(e){ return iso; } }
 // Anpfiff in der LOKALEN Zeitzone des Geraets (Deutschland) anzeigen – openfootball liefert Stadion-Ortszeit (z.B. "20:00 UTC-4")
 function fmtKick(mt){
-  if(!mt||!mt.date) return "";
+  if(!mt) return "";
+  if(typeof mt.kickoffMs==="number" && isFinite(mt.kickoffMs)){   // K.O.: absolute Anpfiffzeit in lokaler Zeit
+    const d=new Date(mt.kickoffMs), p=n=>String(n).padStart(2,"0");
+    return p(d.getDate())+"."+p(d.getMonth()+1)+". · "+p(d.getHours())+":"+p(d.getMinutes())+" Uhr";
+  }
+  if(!mt.date) return "";
   try{
     const tm=(mt.time||"").match(/(\d{1,2}):(\d{2})/); if(!tm) return fmtDate(mt.date);
     let off=0; const om=(mt.time||"").match(/UTC([+-]?\d+)/); if(om&&om[1]!==undefined) off=parseInt(om[1],10)||0;
@@ -1146,10 +1407,71 @@ function buildGroups(box){
     });
     box.appendChild(wrap);
   });
+  wireTipInputs(box);
+}
+// Tipp-Eingabe-Listener verdrahten (gemeinsam von Gruppen-Liste und K.O.-Block genutzt).
+function wireTipInputs(box){
   box.querySelectorAll("input[data-id]").forEach(inp=>inp.addEventListener("input",e=>{
     e.target.value=e.target.value.replace(/[^0-9]/g,"").slice(0,2);
     const id=e.target.dataset.id;
-    commitTip(id, $("#tip-"+id+"-h").value, $("#tip-"+id+"-g").value);
+    commitTip(id, document.getElementById("tip-"+id+"-h").value, document.getElementById("tip-"+id+"-g").value);
+  }));
+}
+// Freigeschaltete K.O.-Spiele rendern – pro Runde ein Klappblock, Match-Markup mit denselben IDs wie buildGroups,
+// damit die Füll-Schleife in renderTippen (Werte/Badge/Auflösung) und liveTick (Sperre) ohne Zusatzlogik greifen.
+function renderKnockout(){
+  const box=document.getElementById("knockout"); if(!box) return;
+  const active=FIXTURES.filter(f=>f.phase==="ko" && koActive(f));
+  if(!active.length){ if(box.dataset.sig!=="-"){ box.innerHTML=""; box.dataset.sig="-"; } return; }
+  const sig=active.map(f=>f.id+":"+f.heim+":"+f.gast+":"+(kickoffTime(f)||0)).join("|");
+  if(box.dataset.sig===sig) return;   // Struktur unverändert -> Werte füllt die Haupt-Schleife (kein Tipp-Störer)
+  let html="";
+  KO_ROUNDS.forEach(r=>{
+    const games=active.filter(f=>f.round===r.round);
+    if(!games.length) return;
+    html+=`<div class="grpwrap open ko"><div class="grphead"><div>${esc(r.name)}<div class="teams">${games.length} Spiel${games.length>1?'e':''} · tippbar bis Anpfiff</div></div><div class="arrow">▾</div></div><div class="grpbody">`;
+    games.forEach(f=>{
+      html+=`<div class="match" id="m-${f.id}">
+        <div class="match-top"><span class="match-meta">${esc(r.name)}</span><span class="pill open" id="badge-${f.id}">offen</span></div>
+        <div class="match-grid">
+          <div class="team"><span class="flag">${flag(f.heim)}</span><span class="nm">${esc(nameDE(f.heim))}</span></div>
+          <div class="score"><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" id="tip-${f.id}-h" data-id="${f.id}" data-s="h"><span class="colon">:</span><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" id="tip-${f.id}-g" data-id="${f.id}" data-s="g"></div>
+          <div class="team gast"><span class="nm">${esc(nameDE(f.gast))}</span><span class="flag">${flag(f.gast)}</span></div>
+        </div>
+        <div class="res" id="res-${f.id}"></div>
+        <div class="penpick" id="pen-${f.id}"></div>
+      </div>`;
+    });
+    html+=`</div></div>`;
+  });
+  box.innerHTML=html; box.dataset.sig=sig;
+  wireTipInputs(box);
+  box.querySelectorAll(".grphead").forEach(h=>h.addEventListener("click",()=>h.parentElement.classList.toggle("open")));
+}
+// Elfmeter-Bonus-Picker einer K.O.-Partie aktualisieren (offen: Auswahl bei Unentschieden-Tipp; gesperrt: Lese-Anzeige).
+function updatePenPicker(f){
+  const box=document.getElementById("pen-"+f.id); if(!box) return;
+  const tip=parseTip(me.tips[f.id]);
+  const isDraw=!!(tip && tip[0]===tip[1]);
+  const locked=isLocked(f), mine=myPen(f.id), pw=penWinOf(f.id);
+  const psig=(locked?"L":isDraw?"D":"H")+"|"+(mine||"")+"|"+(pw||"");
+  if(box.dataset.psig===psig) return;   // unverändert -> kein Neuaufbau (kein Flaggen-Flackern)
+  box.dataset.psig=psig;
+  if(locked){
+    if(!mine){ box.innerHTML=""; return; }
+    let cls="pp-done", tail="";
+    if(pw){ if(mine===pw){ cls+=" ok"; tail=' ✓ <b>+'+PEN_BONUS+'</b>'; } else { cls+=" bad"; tail=' ✗'; } }
+    box.innerHTML='<div class="'+cls+'">🥅 Dein Elfer-Tipp: '+flagHTML(mine)+'<b>'+esc(nameDE(mine))+'</b>'+tail+'</div>';
+    return;
+  }
+  if(!isDraw){ box.innerHTML=""; return; }
+  const btn=tk=>'<button type="button" class="pp-btn'+(mine===tk?' sel':'')+'" data-pen="'+tk+'">'+flagHTML(tk)+'<span>'+esc(nameDE(tk))+'</span></button>';
+  box.innerHTML='<div class="pp-q">🥅 Unentschieden getippt – wer gewinnt im Elfmeterschießen? <span style="opacity:.65">(+'+PEN_BONUS+')</span></div><div class="pp-opts">'+btn(f.heim)+btn(f.gast)+'</div>';
+  box.querySelectorAll(".pp-btn").forEach(b=>b.addEventListener("click",()=>{
+    const tk=b.dataset.pen, cur=myPen(f.id);
+    setMyPen(f.id, cur===tk?"":tk);
+    updatePenPicker(f);
+    toast(cur===tk?"Elfer-Tipp entfernt":("Elfer-Sieger: "+nameDE(tk)));
   }));
 }
 // Tipp speichern + auf BEIDE Eingabe-Sätze spiegeln (Gruppen-Liste „tip-…" und Als-Nächstes-Karte „nx-…").
@@ -1161,6 +1483,7 @@ function commitTip(id, hv, gv){
   if(hv===""&&gv===""){ delete me.tips[id]; if(MODE==="fire") rref("players/"+MYPID+"/tips/"+id).remove().catch(()=>{}); else if(players[MYPID]) players[MYPID].tips=me.tips; saveTipsLS(); }
   else { pushTip(id, hv+":"+gv); }   // speichert auch Teil-Tipps ("2:" / ":1") – Zwischenstand geht nie verloren
   mirrorTip(id); updateProgress(); flashSaved();
+  if(f && f.phase==="ko") updatePenPicker(f);   // Unentschieden getippt? -> Elfer-Picker ein-/ausblenden
 }
 function mirrorTip(id){
   const [ph,pg]=tipParts(me.tips[id]);
@@ -1172,9 +1495,10 @@ function mirrorTip(id){
 }
 let savedT; function flashSaved(){ const e=document.getElementById("tipSaved"); if(!e) return; e.classList.add("show"); clearTimeout(savedT); savedT=setTimeout(()=>e.classList.remove("show"),1100); }
 function updateProgress(){
-  const got=FIXTURES.filter(f=>parseTip(me.tips[f.id])).length;
-  const tc=$("#tipCount"); if(tc) tc.textContent=got+" / 72 getippt";
-  const pb=$("#progBar"); if(pb) pb.style.width=(got/72*100)+"%";
+  const act=activeFixtures(), tot=act.length;
+  const got=act.filter(f=>parseTip(me.tips[f.id])).length;
+  const tc=$("#tipCount"); if(tc) tc.textContent=got+" / "+tot+" getippt";
+  const pb=$("#progBar"); if(pb) pb.style.width=(tot?got/tot*100:0)+"%";
 }
 // „Als Nächstes": die nächsten Spiele mit Live-Countdown, direkt tippbar (synchron mit der Gruppen-Liste).
 function renderNext(){
@@ -1386,17 +1710,18 @@ function rankedPlayers(){
     const base=totalFor(p.tips||{}, results, p.susp||[], kickoffTime);
     const ch=champValid(p.champ), champOk=!!(ch && champ && ch===champ);   // Weltmeister-Bonus, sobald der echte Sieger gesetzt ist
     const champBonus=champOk?CHAMP_BONUS:0;
+    const penBonus=penBonusFor(p.kopen);   // Elfmeterschießen-Bonus (K.O.): je +PEN_BONUS für richtig getippten Elfer-Sieger
     const sig=signatureGif(p.name);   // persönliches Signatur-GIF hat Vorrang; reservierte IDs für Nicht-Besitzer ausblenden
     const gif = sig || (SIG_IDS.has(gifValid(p.gif)) ? "" : gifValid(p.gif));
     const liveTips = live.map(f=>({ id:f.id, heim:f.heim, gast:f.gast, tip:(p.tips&&p.tips[f.id])||"" }));   // Tipp dieser Person fürs laufende Spiel
     const recapTips = recap.map(f=>{ const tip=(p.tips&&p.tips[f.id])||""; return { id:f.id, heim:f.heim, gast:f.gast, res:results[f.id], tip, real:!!parseTip(tip), pts:pointsFor(tip, results[f.id]) }; });   // Auflösung: Tipp + Punkte fürs zuletzt beendete Spiel
-    arr.push({pid, name:p.name, gif, sig:!!sig, wave:flagWaves(p.name), ...base, champ:ch, champOk, champBonus, sum:base.sum+champBonus, me:pid===MYPID, live:liveTips, recap:recapTips}); }
+    arr.push({pid, name:p.name, gif, sig:!!sig, wave:flagWaves(p.name), ...base, champ:ch, champOk, champBonus, penBonus, sum:base.sum+champBonus+penBonus, me:pid===MYPID, live:liveTips, recap:recapTips}); }
   arr.sort((a,b)=> b.sum-a.sum||b.exakt-a.exakt||a.name.localeCompare(b.name));
   return arr;
 }
 function renderBoard(){
-  const done=Object.keys(results).length;
-  $("#boardSub").textContent = (MODE==="fire"?Object.keys(players).length:(me.name?1:0))+" Mitspieler · "+done+" von 72 Spielen gewertet";
+  const done=Object.keys(results).length, TOT=activeFixtures().length;
+  $("#boardSub").textContent = (MODE==="fire"?Object.keys(players).length:(me.name?1:0))+" Mitspieler · "+done+" von "+TOT+" Spielen gewertet";
   const arr=rankedPlayers(), box=$("#rankList");
   let myPos=null;
   // Dichte Platznummer (Stefan): Platz richtet sich nach Punktzahl UND – bei Gleichstand – nach mehr exakten Tipps.
@@ -1412,7 +1737,7 @@ function renderBoard(){
   // Auflösung gehört ebenfalls in die Signatur (Endstand + Punkte je Person) -> erscheint/verschwindet sauber bei
   // Eintrag/Spielwechsel, sonst kein Rebuild (Punkte sind nach Spielende fix).
   const recapSigOf = r => r.recap.map(c=>c.id+"="+(c.res?c.res.join("-"):"")+":"+c.pts+(c.real?"r":"n")).join(",");
-  const bsig = arr.length ? rows.map(({r,pos})=>pos+":"+r.pid+":"+r.sum+":"+r.exakt+":"+(r.gif||"")+":"+(r.champ||"")+":"+(r.champOk?1:0)+":"+(r.me?1:0)+":"+r.name+":"+liveSigOf(r)+":"+recapSigOf(r)).join("|") : "EMPTY";
+  const bsig = arr.length ? rows.map(({r,pos})=>pos+":"+r.pid+":"+r.sum+":"+r.exakt+":"+r.penBonus+":"+(r.gif||"")+":"+(r.champ||"")+":"+(r.champOk?1:0)+":"+(r.me?1:0)+":"+r.name+":"+liveSigOf(r)+":"+recapSigOf(r)).join("|") : "EMPTY";
   if(box.dataset.bsig!==bsig){
     box.innerHTML="";
     if(!arr.length){ box.innerHTML='<div class="empty"><span class="big">🏆</span>Noch keine Tipps da.<br>Schüler scannen den QR-Code und tippen los!</div>'; }
@@ -1428,14 +1753,14 @@ function renderBoard(){
       const recapLine=r.recap.length?`<div class="rank-recap">${r.recap.map(c=>{ if(!c.res) return ""; const exact=c.real&&c.pts===PUNKTE.exakt, hit=c.real&&c.pts>0; const icon=exact?"🎯":hit?"✅":"▫️"; const cls=exact?"exact":hit?"hit":"miss"; const tip=c.real?('Tipp '+esc(parseTip(c.tip).join(":"))):'<span class="rc-skip">kein Tipp</span>'; return `<span class="rc-r ${cls}" title="${esc(nameDE(c.heim))} ${c.res[0]}:${c.res[1]} ${esc(nameDE(c.gast))}">${icon}${flagHTML(c.heim)}<b class="rc-end">${c.res[0]}:${c.res[1]}</b>${flagHTML(c.gast)}<span class="rc-tip">${tip}</span><span class="rc-pt">${c.pts>0?'+'+c.pts:'0'}</span></span>`; }).join("")}</div>`:"";
       const row=document.createElement("div"); row.className="rank-row rank-"+pos+(r.me?" me":""); row.id="rrow-"+r.pid;
       row.innerHTML=`<div class="rank-pos">${medal}</div>${gifHtml}
-        <div class="rank-name">${esc(r.name)}${r.me?' <span class="pill">du</span>':''}<div class="sub" id="rsub-${r.pid}">${r.exakt} exakt · ${r.getippt}/72 getippt</div>${champLine}${liveLine}${recapLine}</div>
+        <div class="rank-name">${esc(r.name)}${r.me?' <span class="pill">du</span>':''}<div class="sub" id="rsub-${r.pid}">${r.exakt} exakt · ${r.getippt}/${TOT} getippt${r.penBonus?` · +${r.penBonus} Elfer`:""}</div>${champLine}${liveLine}${recapLine}</div>
         <div class="rank-pts">${r.sum}<small>Punkte</small></div>`;
       box.appendChild(row);
     });
     box.dataset.bsig=bsig;
   } else {
     // Rangliste strukturell unverändert -> nur den live "getippt"-Zähler je Spieler in-place aktualisieren
-    rows.forEach(({r})=>{ const sub=document.getElementById("rsub-"+r.pid); if(sub) sub.innerHTML=r.exakt+" exakt · "+r.getippt+"/72 getippt"; });
+    rows.forEach(({r})=>{ const sub=document.getElementById("rsub-"+r.pid); if(sub) sub.innerHTML=r.exakt+" exakt · "+r.getippt+"/"+TOT+" getippt"+(r.penBonus?(" · +"+r.penBonus+" Elfer"):""); });
   }
   // Jubel-GIF-Picker: nur für mitspielende, nicht-entfernte Personen; freigeschaltet ab Top 10.
   const amPlayer = !!(me.name && me.name.trim()) && !(MODE==="fire" && players[MYPID] && players[MYPID].removed);
@@ -1610,6 +1935,61 @@ function renderAdmin(){
     }
   }
   renderResultAdmin();
+  renderKoAdmin();
+}
+// Lehrer: K.O.-Paarungen + Anpfiff je Runde eintragen (rollierend freischalten). Gerüst wird EINMAL gebaut,
+// Werte/Disabled werden in-place gespiegelt (kein Rebuild -> stört keine laufende Eingabe).
+function buildKoAdmin(box){
+  const teamOpts='<option value="">— Mannschaft —</option>'+Object.keys(TEAMS).sort((a,b)=>nameDE(a).localeCompare(nameDE(b),"de")).map(tk=>'<option value="'+tk+'">'+esc(nameDE(tk))+'</option>').join("");
+  let html="";
+  KO_ROUNDS.forEach((r,ri)=>{
+    const games=FIXTURES.filter(f=>f.round===r.round);
+    html+=`<div class="grpwrap${ri===0?' open':''} ko"><div class="grphead"><div>${esc(r.name)}<div class="teams">${games.length} Spiel${games.length>1?'e':''}</div></div><div class="arrow">▾</div></div><div class="grpbody">`;
+    games.forEach((f,i)=>{
+      html+=`<div class="ko-row" data-fid="${f.id}">
+        <div class="ko-rl">${esc(r.name)}${r.n>1?(' '+(i+1)):''} <span class="ko-src" data-src></span></div>
+        <div class="ko-pair"><select class="ko-sel champsel" data-side="h">${teamOpts}</select><span class="ko-colon">:</span><select class="ko-sel champsel" data-side="g">${teamOpts}</select></div>
+        <input type="datetime-local" class="ko-dt" aria-label="Anpfiff">
+        <button class="btn sec sm ko-clear" type="button" title="Zurück zur Automatik">↺ Auto</button>
+      </div>`;
+    });
+    html+=`</div></div>`;
+  });
+  box.innerHTML=html;
+  box.querySelectorAll(".grphead").forEach(h=>h.addEventListener("click",()=>h.parentElement.classList.toggle("open")));
+  box.querySelectorAll(".ko-row").forEach(row=>{
+    const fid=row.dataset.fid;
+    const sh=row.querySelector('[data-side="h"]'), sg=row.querySelector('[data-side="g"]'), dt=row.querySelector(".ko-dt"), clr=row.querySelector(".ko-clear");
+    const commit=()=>{
+      const h=sh.value, g=sg.value, ms=dt.value? new Date(dt.value).getTime() : null;
+      if(h&&g){ setKoSlot(fid, h, g, ms); }
+      else if(!h&&!g){ setKoSlot(fid, "", "", null); }
+      // genau eine Mannschaft gewählt -> noch nicht speichern (auf die zweite warten)
+    };
+    [sh,sg].forEach(s=>s.addEventListener("change", commit));
+    dt.addEventListener("change", commit);
+    clr.addEventListener("click", ()=>{ setKoSlot(fid,"","",null); toast("Paarung entfernt"); });
+  });
+}
+function renderKoAdmin(){
+  const box=$("#koAdmin"); if(!box) return;
+  if(!box.dataset.built){ buildKoAdmin(box); box.dataset.built="1"; }
+  const ko=(roomState&&roomState.ko)||{};
+  box.querySelectorAll(".ko-row").forEach(row=>{
+    const fid=row.dataset.fid, f=FIXBYID[fid];
+    const sh=row.querySelector('[data-side="h"]'), sg=row.querySelector('[data-side="g"]'), dt=row.querySelector(".ko-dt"), clr=row.querySelector(".ko-clear"), src=row.querySelector(".ko-src");
+    const k=ko[fid]||{};
+    const manual = !!(k.heim && k.gast);                       // vom Lehrer korrigiert?
+    const lockEdit = koActive(f) && kickoffPassed(f);          // nach Anpfiff nicht mehr umstellbar
+    // effektive Werte zeigen (Automatik ODER Korrektur) – applyKO hat f.heim/f.gast/fixMeta bereits gesetzt
+    const eMs = (fixMeta[fid] && typeof fixMeta[fid].kickoffMs==="number") ? fixMeta[fid].kickoffMs : scheduleMs(fid);
+    if(document.activeElement!==sh) sh.value=f.heim||"";
+    if(document.activeElement!==sg) sg.value=f.gast||"";
+    if(document.activeElement!==dt) dt.value=msToLocalInput(eMs);
+    if(src) src.textContent = manual ? "✎ korrigiert" : (koActive(f) ? "automatisch" : "wartet auf Ergebnisse");
+    [sh,sg,dt].forEach(el=>{ if(el) el.disabled=lockEdit; });
+    if(clr){ clr.disabled = lockEdit || !manual; }              // „↺ Auto" nur sinnvoll, wenn es eine Korrektur gibt
+  });
 }
 // Lehrer: Endstände der bereits angepfiffenen Spiele eintragen (neueste zuerst). Eigene Eingabe = Override (Vorrang vor Auto).
 // Signatur = Struktur + Quelle-Status (nicht die Tore) -> Schüler-Tipp-Events bauen die Felder NICHT neu (Eingabe ungestört);
@@ -1621,15 +2001,24 @@ function renderResultAdmin(){
   const started=FIXTURES.filter(f=>kickoffPassed(f)).map(f=>({f,kt:kickoffTime(f)})).sort((a,b)=>(b.kt||0)-(a.kt||0));
   const show=started.slice(0,MAXROWS);
   const srcOf=f=> ov[f.id]?"o":(autoResults[f.id]?"a":"x");
-  const sig=show.map(({f})=>f.id+srcOf(f)).join("|")+"|n"+started.length;
+  // K.O.-Unentschieden brauchen zusätzlich die Elfer-Sieger-Eingabe -> in die Signatur, sonst erschiene sie nicht bei Score-Wechsel.
+  const koSig=f=>{ if(f.phase!=="ko") return ""; const r=results[f.id]; return "k"+((r&&r[0]===r[1])?"d":"")+(penWinOf(f.id)||""); };
+  const sig=show.map(({f})=>f.id+srcOf(f)+koSig(f)).join("|")+"|n"+started.length;
   if(box.dataset.sig!==sig){
     if(!show.length){ box.innerHTML='<div class="tiny">Noch kein Spiel angepfiffen – sobald eins läuft, kannst du den Endstand hier eintragen.</div>'; box.dataset.sig=sig; return; }
     box.innerHTML = show.map(({f})=>{
       const r=results[f.id], h=r?r[0]:"", g=r?r[1]:"", s=srcOf(f);
       const badge = s==="o"? '<span class="res-src ov">✎ von dir</span>' : s==="a"? '<span class="res-src auto">✓ automatisch</span>' : '<span class="res-src none">offen</span>';
+      const meta = f.phase==="ko" ? '<span class="res-nm">'+esc(f.roundName)+': '+esc(nameDE(f.heim))+' – '+esc(nameDE(f.gast))+'</span>' : '<span class="res-nm">'+esc(nameDE(f.heim))+' – '+esc(nameDE(f.gast))+'</span>';
+      const isDraw = f.phase==="ko" && r && r[0]===r[1], pw=penWinOf(f.id);
+      const penBlock = isDraw ? `<div class="res-pen"><span class="res-pen-q">🥅 Elfmeterschießen-Sieger:</span>`
+          +`<button type="button" class="btn sec sm rp-btn${pw===f.heim?' sel':''}" data-pen="${f.heim}">${esc(nameDE(f.heim))}</button>`
+          +`<button type="button" class="btn sec sm rp-btn${pw===f.gast?' sel':''}" data-pen="${f.gast}">${esc(nameDE(f.gast))}</button>`
+          +`<button type="button" class="btn sec sm rp-btn${!pw?' sel':''}" data-pen="">– keins –</button></div>` : "";
       return `<div class="res-row" data-fid="${f.id}">
         <div class="res-teams">${flagHTML(f.heim)}<input class="res-in" data-side="h" inputmode="numeric" pattern="[0-9]*" maxlength="2" value="${h}" aria-label="Tore ${esc(nameDE(f.heim))}"><span class="res-colon">:</span><input class="res-in" data-side="g" inputmode="numeric" pattern="[0-9]*" maxlength="2" value="${g}" aria-label="Tore ${esc(nameDE(f.gast))}">${flagHTML(f.gast)}</div>
-        <div class="res-meta"><span class="res-nm">${esc(nameDE(f.heim))} – ${esc(nameDE(f.gast))}</span>${badge}${s==="o"? ' <button class="btn sec sm res-clear" type="button">↺ Auto</button>':''}</div>
+        <div class="res-meta">${meta}${badge}${s==="o"? ' <button class="btn sec sm res-clear" type="button">↺ Auto</button>':''}</div>
+        ${penBlock}
       </div>`;
     }).join("") + (started.length>MAXROWS? `<div class="tiny" style="margin-top:8px">Nur die ${MAXROWS} neuesten Spiele angezeigt – ältere wertet die Automatik.</div>`:"");
     box.querySelectorAll(".res-row").forEach(row=>{
@@ -1644,6 +2033,7 @@ function renderResultAdmin(){
       });
       const clr=row.querySelector(".res-clear");
       if(clr) clr.addEventListener("click", ()=>{ setOverride(fid,"",""); toast("Zurück auf Automatik"); });
+      row.querySelectorAll(".rp-btn").forEach(b=>b.addEventListener("click", ()=>{ setPenWin(fid, b.dataset.pen); toast(b.dataset.pen?("Elfer-Sieger: "+nameDE(b.dataset.pen)):"Elfer-Sieger entfernt"); }));
     });
     box.dataset.sig=sig;
   } else {
@@ -1718,8 +2108,8 @@ function selectTab(tab){
 
 /* ================= ABSCHICKEN-PRÜFUNG ================= */
 function runCheck(){
-  const offen=FIXTURES.filter(f=>!parseTip(me.tips[f.id]) && !isLocked(f));
-  const lockedOffen=FIXTURES.filter(f=>!parseTip(me.tips[f.id]) && isLocked(f)).length;
+  const offen=activeFixtures().filter(f=>!parseTip(me.tips[f.id]) && !isLocked(f));
+  const lockedOffen=activeFixtures().filter(f=>!parseTip(me.tips[f.id]) && isLocked(f)).length;
   const wb=$("#submitWarn");
   if(!offen.length){
     wb.classList.remove("bad"); wb.classList.add("show");
