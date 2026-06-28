@@ -32,6 +32,9 @@
   .mh-title .yr{color:var(--green)}
   .hd-sub{font-weight:700; font-size:10.5px; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
   .mh-badge{flex:none; width:54px; height:54px; display:grid; place-items:center; font-size:29px; background:var(--yellow); border:3px solid var(--ink); border-radius:50%; box-shadow:3px 3px 0 var(--ink); transform:rotate(-7deg)}
+  /* dezenter Schnellzugriff aufs Jubel-GIF (nur fuer berechtigte Spieler sichtbar) */
+  .mh-gifbtn{flex:none; width:40px; height:40px; display:grid; place-items:center; font-size:19px; cursor:pointer; background:var(--cream); border:2.5px solid var(--ink); border-radius:50%; box-shadow:2px 2px 0 var(--ink); transition:transform .08s, box-shadow .08s}
+  .mh-gifbtn:hover{filter:brightness(1.03)} .mh-gifbtn:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--ink)}
 
   main{max-width:780px; margin:0 auto; padding:18px 16px}
   .card{background:var(--cream); border:2.5px solid var(--ink); border-radius:14px; padding:18px; margin:0 0 16px; box-shadow:5px 5px 0 var(--ink)}
@@ -382,6 +385,7 @@
       <h1 class="mh-title">WM <span class="yr">2026</span></h1>
       <div class="hd-sub" id="appSub">verbinde…</div>
     </div>
+    <button id="gifJump" class="mh-gifbtn hidden" type="button" title="Jubel-GIF auswählen" aria-label="Jubel-GIF auswählen">🎉</button>
     <div class="mh-badge">⚽</div>
   </div>
 </header>
@@ -1777,6 +1781,7 @@ function renderBoard(){
   const mySig = amPlayer ? signatureGif(me.name) : "";   // habe ich ein persönliches Signatur-GIF? -> feste Anzeige statt Auswahl
   const vipPick = amPlayer && sigKey(me.name)==="mrt";   // Mr.T: darf den Picker IMMER sehen (Ex-Signatur-Privileg, rang-unabhängig)
   const canPick = !mySig && amPlayer && (vipPick || (myPos!=null && myPos<=TOP_GIF));
+  const gj=$("#gifJump"); if(gj) gj.classList.toggle("hidden", !(amPlayer && (canPick || mySig)));   // dezenter Kopf-Button nur fuer Berechtigte
   const gc=$("#gifCard"), gl=$("#gifLockCard"), gt=$("#gifTitle"), gi=$("#gifIntro"), gp=$("#gifPicker");
   if(gc){
     gc.classList.toggle("hidden", !(canPick || mySig));
@@ -2145,9 +2150,21 @@ function scrollToFixture(id){
   m.style.transition="box-shadow .25s"; m.style.boxShadow="0 0 0 3px var(--vermilion)";
   setTimeout(()=>m.style.boxShadow="",1600);
 }
+// Schnellzugriff aus dem Kopf: zum Jubel-GIF-Picker springen (Highscore-Tab, Karte öffnen, hinscrollen).
+function jumpToGif(){
+  selectTab("board");
+  const c=document.getElementById("gifCard");
+  if(c && !c.classList.contains("hidden")){
+    c.classList.add("open");
+    const h=document.getElementById("gifHead"); if(h) h.setAttribute("aria-expanded","true");
+    LS("wmt_gifopen","1");
+    setTimeout(()=>{ try{ c.scrollIntoView({behavior:"smooth", block:"start"}); }catch(e){} }, 60);
+  }
+}
 
 /* ================= EVENTS ================= */
 $("#checkBtn").addEventListener("click",runCheck);
+(function(){ const b=document.getElementById("gifJump"); if(b) b.addEventListener("click", jumpToGif); })();
 let nickAck=false;   // Bestaetigung, falls Eingabe nach einem echten Namen aussieht
 $("#nickIn").addEventListener("input",e=>{
   nickAck=false; $("#joinBtn").textContent="Los geht's ⚽";
