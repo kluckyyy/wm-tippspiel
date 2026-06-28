@@ -1228,7 +1228,13 @@ let fixMeta={};  // id -> {date,time,round} aus openfootball (optional)
 const NEXT_COUNT = 3;   // wie viele kommende Spiele die „Als Nächstes"-Karte zeigt
 // Die nächsten n Spiele mit bekanntem, noch zukünftigem Anpfiff (chronologisch). Rein funktional -> testbar.
 function nextFixtures(list, nowMs, n){
-  return list.map(f=>({f,kt:kickoffTime(f)})).filter(x=>x.kt!=null && x.kt>nowMs).sort((a,b)=>a.kt-b.kt).slice(0,n).map(x=>x.f);
+  const up=list.map(f=>({f,kt:kickoffTime(f)})).filter(x=>x.kt!=null && x.kt>nowMs).sort((a,b)=>a.kt-b.kt);
+  if(up.length<=n) return up.map(x=>x.f);
+  // Spiele mit GLEICHER Anstoßzeit nicht an der n-Grenze abschneiden -> sie stehen immer komplett zusammen,
+  // damit man kein gleichzeitiges Spiel beim Tippen verpasst.
+  let end=n; const cut=up[n-1].kt;
+  while(end<up.length && up[end].kt===cut) end++;
+  return up.slice(0,end).map(x=>x.f);
 }
 // Restzeit bis Anpfiff als kurzer Text (für den Live-Countdown).
 function untilStr(kt){
@@ -1687,7 +1693,39 @@ const GIFS = [
   { id:"nk_wave",    img:"https://media.giphy.com/media/xT9IgG50Fb7Mi0prBC/200.gif", label:"Winke-winke",     cat:"necken" },
   { id:"nk_bye",     img:"https://media.giphy.com/media/Nry46O07xcwE/200.gif",       label:"Tschüss!",        cat:"necken" },
   { id:"nk_see",     img:"https://media.giphy.com/media/flWn1Cyk9HcVIj9xWy/200.gif", label:"Ich seh dich!",   cat:"necken" },
-  { id:"nk_one",     img:"https://media.giphy.com/media/LNxMB0t3J1LGogqVUe/200.gif", label:"Nummer 1!",       cat:"necken" }
+  { id:"nk_one",     img:"https://media.giphy.com/media/LNxMB0t3J1LGogqVUe/200.gif", label:"Nummer 1!",       cat:"necken" },
+  // 🎬 Weitere echte GIFs (GIPHY rating=g, je per Vision geprüft: textfrei + kindgerecht + HTTP 200)
+  { id:"g2_torrutsch",   img:"https://media.giphy.com/media/MXEzLLTo8DyQ4RSxcP/200.gif", label:"Tor-Jubel Rutsche",  cat:"fussball" },
+  { id:"g2_konfettipust",img:"https://media.giphy.com/media/Q5Ef3i3Uld8C3BV6Td/200.gif", label:"Konfetti pusten",    cat:"jubel" },
+  { id:"g2_partypopper", img:"https://media.giphy.com/media/FHJ09wMHGJvSpOEZKU/200.gif", label:"Party-Popper",       cat:"jubel" },
+  { id:"g2_konfettiregen",img:"https://media.giphy.com/media/KwXltA63AO8mXuGz7G/200.gif",label:"Konfetti-Regen",     cat:"jubel" },
+  { id:"g2_waschbaer",   img:"https://media.giphy.com/media/zfNAMCrhSQzte/200.gif",      label:"Klatschender Waschbär",cat:"meme" },
+  { id:"g2_feuerwerk",   img:"https://media.giphy.com/media/26FL74Uw7WVNtQBFK/200.gif",  label:"Feuerwerk",          cat:"jubel" },
+  { id:"g2_rakete",      img:"https://media.giphy.com/media/xTiTnFctzwHKKe3L9e/200.gif", label:"Rakete zischt",      cat:"jubel" },
+  { id:"g2_sterne5",     img:"https://media.giphy.com/media/XBlwFU4OJ0cgZVbNUl/200.gif", label:"Sterne High Five",   cat:"jubel" },
+  { id:"g2_hundpfote",   img:"https://media.giphy.com/media/100QWMdxQJzQC4/200.gif",     label:"Hund gibt Pfote",    cat:"meme" },
+  { id:"g2_pinguinmarsch",img:"https://media.giphy.com/media/Er22KKA7vzZJK/200.gif",     label:"Pinguin-Marsch",     cat:"meme" },
+  { id:"g2_pingu",       img:"https://media.giphy.com/media/Pt5PnJVtHuy2s/200.gif",      label:"Pinguin wackelt",    cat:"meme" },
+  { id:"g2_tanzkatze",   img:"https://media.giphy.com/media/CnVSvvHyslUkM/200.gif",      label:"Tanzende Katze",     cat:"meme" },
+  { id:"g2_memekatze",   img:"https://media.giphy.com/media/OwFsPO2tCcrSYxDErS/200.gif", label:"Disco-Katze",        cat:"meme" },
+  { id:"g2_bongokatze",  img:"https://media.giphy.com/media/gXXFrjHFJIMoqKr8UT/200.gif", label:"Pummel-Katze",       cat:"meme" },
+  { id:"g2_affedaumen",  img:"https://media.giphy.com/media/sGCYVFRlpvrjyFP5WM/200.gif", label:"Affe Daumen hoch",   cat:"meme" },
+  { id:"g2_baff",        img:"https://media.giphy.com/media/3OSo3PPaXdw0U/200.gif",       label:"Baff erstaunt",      cat:"fail" },
+  { id:"g2_daumenjunge", img:"https://media.giphy.com/media/WFyvwq3xoTTMs/200.gif",       label:"Daumen hoch Junge",  cat:"jubel" },
+  { id:"g2_flausch",     img:"https://media.giphy.com/media/N9F3sKI3vZsmdmBYvm/200.gif",  label:"Flausch winkt",      cat:"necken" },
+  { id:"g2_krokowink",   img:"https://media.giphy.com/media/efgxbBYWcH0kEt6at0/200.gif",  label:"Krokodil winkt",     cat:"necken" },
+  { id:"g2_dinopink",    img:"https://media.giphy.com/media/xfHdU1u88PXPR8NDZI/200.gif",  label:"Neugieriger Dino",   cat:"necken" },
+  { id:"g2_dinogruen",   img:"https://media.giphy.com/media/KTMXHrjYN5whhA4JVZ/200.gif",  label:"Frecher Dino",       cat:"necken" },
+  // 💍 Herr der Ringe (harmlos, je per Vision geprüft: kein Kampf/Grusel/Text, HTTP 200)
+  { id:"lotr_hobbitfest",  img:"https://media.giphy.com/media/1xmhhQ2ygZG8CDDTNV/200.gif", label:"Hobbits feiern",       cat:"lotr" },
+  { id:"lotr_feuerwerk",   img:"https://media.giphy.com/media/TItFMjitHcAWLrbfjB/200.gif", label:"Gandalfs Feuerwerk",   cat:"lotr" },
+  { id:"lotr_baumbart",    img:"https://media.giphy.com/media/p6jVTOTBo63qU/200.gif",      label:"Baumbart im Wald",     cat:"lotr" },
+  { id:"lotr_wiedersehen", img:"https://media.giphy.com/media/69iB0zVgoKkatcVDrA/200.gif", label:"Gandalf & Frodo",      cat:"lotr" },
+  { id:"lotr_gimli",       img:"https://media.giphy.com/media/UZZIg8n9nfQa6CPSmD/200.gif", label:"Gimli schaut sich um", cat:"lotr" },
+  { id:"lotr_adler",       img:"https://media.giphy.com/media/auxnDyBPOih5m/200.gif",      label:"Gandalf & der Adler",  cat:"lotr" },
+  { id:"lotr_ring",        img:"https://media.giphy.com/media/t7GDY7UBlW5ha6oF9c/200.gif", label:"Der Eine Ring",        cat:"lotr" },
+  { id:"lotr_pippin",      img:"https://media.giphy.com/media/yNP3zrPHZttw4/200.gif",      label:"Pippin staunt",        cat:"lotr" },
+  { id:"lotr_gollum",      img:"https://media.giphy.com/media/E3B37yfcBiwTK/200.gif",      label:"Gollum guckt",         cat:"lotr" }
 ];
 const GIFBYID = {}; GIFS.forEach(g=>GIFBYID[g.id]=g);
 const TOP_GIF = 10;   // ab welcher Rang-Grenze ein GIF wählbar/sichtbar ist
@@ -1818,8 +1856,8 @@ function renderGifPicker(){
   const cur=myGif();
   const opt=(id,inner,extra)=>`<div class="gifopt${(cur===id)?" sel":""}" data-gif="${id}"${extra||""}>${inner}</div>`;
   let html=`<div class="gifpick">${opt("",'<span class="none">keins</span>')}</div>`;
-  const CATLABEL={jubel:"🎉 Jubel", fail:"😅 Fails (harmlos)", fussball:"⚽ Fußball", necken:"😜 Necken & Grüßen", meme:"🎬 Echte GIFs", kult:"📺 80er-Kult", spezial:"🧙 Spezial"};
-  ["jubel","fail","fussball","necken","meme","kult","spezial"].forEach(cat=>{
+  const CATLABEL={jubel:"🎉 Jubel", fail:"😅 Fails (harmlos)", fussball:"⚽ Fußball", necken:"😜 Necken & Grüßen", meme:"🎬 Echte GIFs", kult:"📺 80er-Kult", lotr:"💍 Herr der Ringe", spezial:"🧙 Spezial"};
+  ["jubel","fail","fussball","necken","meme","kult","lotr","spezial"].forEach(cat=>{
     const items=GIFS.filter(g=>g.cat===cat);
     if(!items.length) return;
     html+=`<div class="gifcat">${CATLABEL[cat]||cat}</div><div class="gifpick">`;
