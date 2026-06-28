@@ -683,6 +683,10 @@ const KO_R32 = {
  "R32-15":{home:"1K",third:["D","E","I","J","L"]}, "R32-16":{home:"2D",away:"2G"}
 };
 const KO_THIRD_SLOTS = Object.keys(KO_R32).filter(id=>KO_R32[id].third);
+// REALE Dritt-Zuordnung der WM 2026 (FIFA Annex C ist nicht algorithmisch ableitbar -> fest hinterlegt).
+// Slot -> Gruppenbuchstabe des dort spielenden Dritten. Verifiziert über 3 unabhängige Live-Quellen (FOX/Sky/Yahoo).
+// Wird in computeR32 angewandt, sobald die qualifizierten Dritt-Gruppen exakt diesen 8 entsprechen (sonst generisches Matching).
+const KO_R32_THIRD_FIX = { "R32-2":"D","R32-5":"F","R32-7":"E","R32-8":"K","R32-9":"B","R32-10":"I","R32-13":"J","R32-15":"L" };
 // Bracket-Baum ab Achtelfinale: id -> [[Quelle,SpielId],[Quelle,SpielId]] mit Quelle "W"=Sieger / "L"=Verlierer.
 const KO_TREE = {
  "R16-1":[["W","R32-2"],["W","R32-5"]], "R16-2":[["W","R32-1"],["W","R32-3"]],
@@ -820,7 +824,10 @@ function computeR32(){
   const thirds=Object.keys(GROUPS).map(g=>({g,pts:stand[g].third.pts,gd:stand[g].third.gd,gf:stand[g].third.gf}));
   thirds.sort((a,b)=> b.pts-a.pts||b.gd-a.gd||b.gf-a.gf||a.g.localeCompare(b.g));
   const qualG=new Set(thirds.slice(0,8).map(t=>t.g));
-  const assign=matchThirds(qualG);
+  let assign=matchThirds(qualG);
+  // Sobald die qualifizierten Dritt-Gruppen exakt der real hinterlegten Auslosung entsprechen, die ECHTE Zuordnung nehmen.
+  const fixGroups=Object.values(KO_R32_THIRD_FIX).slice().sort().join("");
+  if([...qualG].sort().join("")===fixGroups) assign=Object.assign({}, KO_R32_THIRD_FIX);
   const pos=c=>{ const n=+c[0], g=c.slice(1); return n===1?stand[g].win:n===2?stand[g].run:stand[g].third.t; };
   const out={};
   for(const id in KO_R32){ const d=KO_R32[id]; const home=pos(d.home);
@@ -1425,7 +1432,7 @@ function renderKnockout(){
   if(!active.length){ if(box.dataset.sig!=="-"){ box.innerHTML=""; box.dataset.sig="-"; } return; }
   const sig=active.map(f=>f.id+":"+f.heim+":"+f.gast+":"+(kickoffTime(f)||0)).join("|");
   if(box.dataset.sig===sig) return;   // Struktur unverändert -> Werte füllt die Haupt-Schleife (kein Tipp-Störer)
-  let html="";
+  let html='<div class="card" style="border-color:var(--vermilion); box-shadow:5px 5px 0 var(--vermilion)"><h2 style="margin-bottom:4px">🏆 K.O.-Runde – jetzt zählt\'s!</h2><p class="hint" style="margin-bottom:0">Tippe wie immer das Ergebnis. <b>Wichtig:</b> Tippst du bei einem K.O.-Spiel ein <b>Unentschieden</b>, erscheint darunter eine Auswahl – tippe dann auch, <b>wer im Elfmeterschießen gewinnt</b>. Stimmt es (und das Spiel geht wirklich ins Elfmeterschießen), gibt es <b>+2 Bonuspunkte</b>. K.O.-Ergebnis = Stand nach Verlängerung.</p></div>';
   KO_ROUNDS.forEach(r=>{
     const games=active.filter(f=>f.round===r.round);
     if(!games.length) return;
@@ -1449,8 +1456,10 @@ function renderKnockout(){
   box.querySelectorAll(".grphead").forEach(h=>h.addEventListener("click",()=>h.parentElement.classList.toggle("open")));
 }
 // Elfmeter-Bonus-Picker einer K.O.-Partie aktualisieren (offen: Auswahl bei Unentschieden-Tipp; gesperrt: Lese-Anzeige).
-function updatePenPicker(f){
-  const box=document.getElementById("pen-"+f.id); if(!box) return;
+// Aktualisiert ALLE Elfer-Picker-Container eines K.O.-Spiels (K.O.-Block "pen-…" UND "Als Nächstes"-Karte "npen-…"),
+// damit der Picker überall erscheint, wo ein Unentschieden getippt wird.
+function updatePenPicker(f){ ["pen-","npen-"].forEach(pre=>{ const box=document.getElementById(pre+f.id); if(box) updatePenInto(box,f); }); }
+function updatePenInto(box, f){
   const tip=parseTip(me.tips[f.id]);
   const isDraw=!!(tip && tip[0]===tip[1]);
   const locked=isLocked(f), mine=myPen(f.id), pw=penWinOf(f.id);
@@ -1517,7 +1526,7 @@ function renderNext(){
         <span class="nx-tm"><span class="flag">${flag(f.heim)}</span><span class="nm">${esc(nameDE(f.heim))}</span></span>
         <span class="nx-sc"><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" id="nx-${f.id}-h" data-nx="${f.id}"><span class="c">:</span><input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" id="nx-${f.id}-g" data-nx="${f.id}"></span>
         <span class="nx-tm gast"><span class="nm">${esc(nameDE(f.gast))}</span><span class="flag">${flag(f.gast)}</span></span>
-      </div></div>`).join("");
+      </div>${f.phase==="ko"?'<div class="penpick" id="npen-'+f.id+'"></div>':''}</div>`).join("");
     list.querySelectorAll("input[data-nx]").forEach(inp=>inp.addEventListener("input",e=>{
       e.target.value=e.target.value.replace(/[^0-9]/g,"").slice(0,2);
       const id=e.target.dataset.nx;
@@ -1532,6 +1541,7 @@ function renderNext(){
     if(ig && document.activeElement!==ig) ig.value=pg;
     const w=document.getElementById("nxwhen-"+f.id);
     if(w) w.innerHTML=esc(fmtKick(fixMeta[f.id]))+' · <b>'+esc(untilStr(kickoffTime(f)))+'</b>';
+    if(f.phase==="ko") updatePenPicker(f);   // Elfer-Picker auch in „Als Nächstes" (bei Unentschieden-Tipp)
   });
 }
 // Sekunden-Ticker: Countdown live runterzählen + Spiele PUNKTGENAU bei Anpfiff sperren (tippbar bis zur letzten Sekunde).
