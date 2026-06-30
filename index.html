@@ -357,7 +357,9 @@
   #groups .grpwrap:nth-child(4){animation-delay:.14s} #groups .grpwrap:nth-child(5){animation-delay:.18s} #groups .grpwrap:nth-child(6){animation-delay:.22s}
   #groups .grpwrap:nth-child(7){animation-delay:.26s} #groups .grpwrap:nth-child(8){animation-delay:.30s} #groups .grpwrap:nth-child(9){animation-delay:.34s}
   #groups .grpwrap:nth-child(10){animation-delay:.38s} #groups .grpwrap:nth-child(11){animation-delay:.42s} #groups .grpwrap:nth-child(12){animation-delay:.46s}
-  @media (prefers-reduced-motion:reduce){*{animation:none !important; transition:none !important}}
+  /* reduced-motion: Seiten-Deko ruhig stellen, ABER die bewusst gewählten Emote-Sticker (.gifst-*) weiter animieren
+     – auf Smartboards/Displays ist "Bewegung reduzieren" oft an und fror sonst genau die Emoji-Emotes ein. */
+  @media (prefers-reduced-motion:reduce){*:not([class*="gifst-"]){animation:none !important; transition:none !important}}
   @media (max-width:430px){ .mh-title{font-size:34px} .score input{width:46px; font-size:23px} .team{font-size:13px} .flag{font-size:20px} main{padding:16px 13px} .qrcode svg{width:200px;height:200px} }
 </style>
 </head>
@@ -708,16 +710,26 @@ function groupLetterOf(tk){ for(const g in GROUPS) if(GROUPS[g].indexOf(tk)>=0) 
 
 /* ================= ERGEBNISSE (openfootball) ================= */
 // results: { fixtureId: [heimTore, gastTore] }  – im Sinne der FIXTURE-Heim/Gast-Reihenfolge
+let koFeed=[];   // K.O.-Endstände aus dem Auto-Feed (noch ohne Slot): {a,b,sc:[x,y],pen:tokenWinner|null}; koAutoFill ordnet sie zu
 function parseResults(json){
   const res={};
+  const kf=[];
   const matches=(json&&json.matches)||[];
   for(const m of matches){
     if(!m||!m.team1||!m.team2) continue;
-    // K.O.-Partien aus der Auto-Quelle überspringen: sie laufen bewusst über manuelle Eingaben (state/ko + Overrides).
-    // Schutz, falls zwei Teams DERSELBEN Gruppe später im K.O. erneut spielen – sonst überschriebe ihr K.O.-Ergebnis
-    // versehentlich das Gruppenspiel (FIXBYPAIR ist gruppen-only).
-    if(/\b(round of|achtelfinale|sechzehntelfinale|viertelfinale|halbfinale|quarter|semi|third|final|finale|k\.?o\.?|knockout|play-?off)\b/i.test(m.round||"")) continue;
     const t1=normTeam(m.team1), t2=normTeam(m.team2);
+    if(/\b(round of|achtelfinale|sechzehntelfinale|viertelfinale|halbfinale|quarter|semi|third|final|finale|k\.?o\.?|knockout|play-?off)\b/i.test(m.round||"")){
+      // K.O.: NICHT über FIXBYPAIR (gruppen-only) mappen – ein K.O.-Rematch zweier Gruppen-Teams würde sonst ihr
+      // Gruppenspiel überschreiben. Stattdessen roh sammeln; koAutoFill ordnet später dem berechneten K.O.-Slot zu.
+      const et=m.score&&m.score.et, ftk=m.score&&m.score.ft;
+      const sc=(Array.isArray(et)&&et[0]!=null&&et[1]!=null)? et : ftk;   // Spielstand-Wertung = Stand NACH Verlängerung
+      if(Array.isArray(sc)&&sc.length>=2&&sc[0]!=null&&sc[1]!=null){
+        let pen=null; const p=m.score&&m.score.p;
+        if(Array.isArray(p)&&p[0]!=null&&p[1]!=null&&p[0]!==p[1]) pen=(p[0]>p[1])?t1:t2;   // Elfmeter-Sieger (Token)
+        kf.push({a:t1,b:t2,sc:[+sc[0],+sc[1]],pen});
+      }
+      continue;
+    }
     const f=FIXBYPAIR[[t1,t2].sort().join("|")];
     if(!f) continue;
     fixMeta[f.id]={date:m.date||"", time:m.time||"", round:m.round||""};  // Termin merken (auch ohne Ergebnis)
@@ -725,6 +737,7 @@ function parseResults(json){
     if(!Array.isArray(ft)||ft.length<2||ft[0]==null||ft[1]==null) continue;
     res[f.id]= (f.heim===t1)? [+ft[0],+ft[1]] : [+ft[1],+ft[0]];   // auf Fixture-Heim/Gast drehen
   }
+  koFeed=kf;
   return res;
 }
 
@@ -786,7 +799,35 @@ let results = {};            // fixtureId -> [h,g]  (effektiv: Auto-Quelle + man
 let autoResults = {};        // nur die automatisch geladenen Endstände (openfootball) – ohne Overrides
 // Effektive Ergebnisse neu zusammensetzen: Auto-Quelle als Basis, Lehrer-Overrides (state/overrides) on top.
 // ERST results setzen, DANN applyKO() – die K.O.-Automatik (Tabellen/Sieger-Weiterrücken) liest die frischen Ergebnisse.
-function recomputeResults(){ results = Object.assign({}, autoResults, manualOverrides()); applyKO(); }
+let koAutoPen={};   // automatisch aus dem Feed erkannte Elfmeter-Sieger je K.O.-Slot (Token)
+// Effektiver Elfmeter-Sieger: Auto-Erkennung (Feed) als Basis, Lehrer-Eintrag (state/penwin) sticht.
+function effPenwin(){ return Object.assign({}, koAutoPen, (roomState&&roomState.penwin)||{}); }
+// K.O.-Endstände aus dem Auto-Feed den berechneten Slots zuordnen – rundenweise bis stabil
+// (R32 aus Gruppen → Sieger/Elfer rücken nach → R16-Paarung → deren Ergebnisse → … → Finale).
+// results[id] schon gesetzt (Auto-Vorrunde ODER Lehrer-Override) bleibt unberührt → Lehrer sticht.
+function koAutoFill(){
+  koAutoPen={};
+  if(!koFeed.length) return;
+  for(let pass=0; pass<=KO_ROUNDS.length; pass++){
+    const comp=computeKO(); let changed=false;
+    for(const id in comp){
+      if(results[id]) continue;
+      const p=comp[id]; if(!p||!p.heim||!p.gast) continue;
+      const key=[p.heim,p.gast].sort().join("|");
+      const fm=koFeed.find(x=>[x.a,x.b].sort().join("|")===key);
+      if(!fm) continue;
+      results[id]= (p.heim===fm.a)? [fm.sc[0],fm.sc[1]] : [fm.sc[1],fm.sc[0]];   // auf Slot-Heim/Gast drehen
+      if(fm.pen) koAutoPen[id]=fm.pen;
+      changed=true;
+    }
+    if(!changed) break;   // nichts Neues mehr zuordenbar → fertig
+  }
+}
+function recomputeResults(){
+  results = Object.assign({}, autoResults, manualOverrides());
+  koAutoFill();   // K.O.-Auto-Ergebnisse einfüllen, BEVOR applyKO die endgültigen Paarungen/fixMeta setzt
+  applyKO();
+}
 
 /* ================= K.O.-RUNDEN (rollierende Freischaltung) =================
    Die K.O.-Spiele stehen als leeres Gerüst in FIXTURES (phase:"ko"). Der Lehrer trägt pro Runde Paarung+Anpfiff
@@ -845,7 +886,7 @@ function computeR32(){
 function teamWL(id, comp, which){
   const p=comp[id]; if(!p) return null; const r=results[id]; if(!r) return null;
   let win; if(r[0]>r[1]) win=p.heim; else if(r[1]>r[0]) win=p.gast;
-  else { const pw=roomState&&roomState.penwin&&roomState.penwin[id]; win=(pw===p.heim||pw===p.gast)?pw:null; }
+  else { const pw=effPenwin()[id]; win=(pw===p.heim||pw===p.gast)?pw:null; }
   if(!win) return null; return which==="W"? win : (win===p.heim?p.gast:p.heim);
 }
 // Komplette automatische K.O.-Paarungen: R32 aus Gruppentabellen, danach jede Runde aus Sieger/Verlierer der Vorrunde.
@@ -896,7 +937,7 @@ function setKoSlot(fid, heim, gast, kickoffMs){
 // Elfmeter-Tipp/-Ergebnis: nur eine der beiden Mannschaften der Partie ist gültig (tolerant gegen Re-Paarung).
 function penValid(fid, tk){ const f=FIXBYID[fid]; if(!f||f.phase!=="ko") return ""; return (tk===f.heim||tk===f.gast)?tk:""; }
 // Tatsächlicher Elfmeterschießen-Sieger (vom Lehrer gesetzt, state/penwin/<id>); leer = es gab keins / noch nicht gesetzt.
-function penWinOf(fid){ const v=roomState&&roomState.penwin&&roomState.penwin[fid]; return penValid(fid, v); }
+function penWinOf(fid){ return penValid(fid, effPenwin()[fid]); }
 function setPenWin(fid, tk){
   const f=FIXBYID[fid]; if(!f || f.phase!=="ko") return;
   tk=(tk===f.heim||tk===f.gast)? tk : "";
@@ -908,7 +949,7 @@ function setPenWin(fid, tk){
 // UND sein Elfer-Tipp den Sieger trifft.
 function penBonusFor(kopen){
   if(!kopen) return 0;
-  const pw=(roomState&&roomState.penwin)||{}; let b=0;
+  const pw=effPenwin(); let b=0;
   for(const fid in pw){ const win=penValid(fid, pw[fid]); if(!win) continue; if(kopen[fid]===win) b+=PEN_BONUS; }
   return b;
 }
@@ -1642,6 +1683,19 @@ const GIFS = [
   { id:"g80_scooby", img:"https://media.giphy.com/media/eomy8S00ljwjK/200.gif",      label:"Scooby-Doo",       cat:"kult" },
   { id:"g80_gadget", img:"https://media.giphy.com/media/ghXliYqQb2BMI/200.gif",      label:"Inspektor Gadget", cat:"kult" },
   { id:"g80_turtles",img:"https://media.giphy.com/media/sFIcXRErXFJMUMzz0h/200.gif", label:"Turtles",          cat:"kult" },
+  // 🚗 Zurück in die Zukunft (BTTF-Trilogie, GIPHY rating=g, je per Vision geprüft) – 80er-Kult
+  { id:"bttf_feuerspur", img:"https://media.giphy.com/media/wR4bJk4jF5Tl6/200.gif",      label:"DeLorean Feuerspur", cat:"kult" },
+  { id:"bttf_nacht",     img:"https://media.giphy.com/media/7TZvWKVkm0xXi/200.gif",      label:"DeLorean bei Nacht", cat:"kult" },
+  { id:"bttf_uhrturm",   img:"https://media.giphy.com/media/vASwXhikF0Dug/200.gif",      label:"Uhrturm-Blitz",      cat:"kult" },
+  { id:"bttf_zeit",      img:"https://media.giphy.com/media/xT9IgsTMqIWwi21XWM/200.gif", label:"Zeitschaltung",      cat:"kult" },
+  { id:"bttf_88",        img:"https://media.giphy.com/media/xsF1FSDbjguis/200.gif",      label:"88 mph",             cat:"kult" },
+  { id:"bttf_flux",      img:"https://media.giphy.com/media/hAogM2NqtbBF6/200.gif",      label:"Flux-Kompensator",   cat:"kult" },
+  { id:"bttf_docmarty",  img:"https://media.giphy.com/media/rULGb0wtaeAEM/200.gif",      label:"Doc & Marty",        cat:"kult" },
+  { id:"bttf_doc",       img:"https://media.giphy.com/media/Vqvr9BGv1vhDi/200.gif",      label:"Doc Brown",          cat:"kult" },
+  { id:"bttf_docschock", img:"https://media.giphy.com/media/N71kWAa1wM7NC/200.gif",      label:"Doc schockiert",     cat:"kult" },
+  { id:"bttf_marty",     img:"https://media.giphy.com/media/BZSND1oZ6z5nO/200.gif",      label:"Marty McFly",        cat:"kult" },
+  { id:"bttf_hoverboard",img:"https://media.giphy.com/media/cCLkzu3MMXxvi/200.gif",      label:"Hoverboard",         cat:"kult" },
+  { id:"bttf_amp",       img:"https://media.giphy.com/media/ahqXZjdmep0Zy/200.gif",      label:"Mega-Verstärker",    cat:"kult" },
   // 🧙 Spezial (früher exklusives Signatur-GIF von Mr.T, jetzt für alle wählbar)
   { id:"gandalf",   img:"gandalf.gif",                    label:"Gandalf",         cat:"spezial" },
   // 🎬 Echte GIFs von GIPHY (rating=g = harmlos), kuratiert + per Vision geprüft; CDN-Hotlink, kein API-Key im Code
@@ -1802,7 +1856,7 @@ function gifSticker(id){
   if(g.img){   // animiertes Bild (GIF/PNG): volle URL (z.B. GIPHY-CDN) direkt, sonst Repo-Datei unter CLIPS_BASE
     const src = /^https?:\/\//.test(g.img) ? g.img : CLIPS_BASE+g.img;
     return '<span class="gifst gifclip" role="img" aria-label="'+esc(g.label)+'" title="'+esc(g.label)+'">'
-      +'<img src="'+src+'" alt="'+esc(g.label)+'" loading="lazy" referrerpolicy="no-referrer"></span>';
+      +'<img src="'+src+'" alt="'+esc(g.label)+'" referrerpolicy="no-referrer"></span>';
   }
   if(CLIP_IDS.has(g.id)){
     return '<span class="gifst gifclip" role="img" aria-label="'+esc(g.label)+'" title="'+esc(g.label)+'">'
