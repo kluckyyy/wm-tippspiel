@@ -721,11 +721,13 @@ function parseResults(json){
     if(/\b(round of|achtelfinale|sechzehntelfinale|viertelfinale|halbfinale|quarter|semi|third|final|finale|k\.?o\.?|knockout|play-?off)\b/i.test(m.round||"")){
       // K.O.: NICHT über FIXBYPAIR (gruppen-only) mappen – ein K.O.-Rematch zweier Gruppen-Teams würde sonst ihr
       // Gruppenspiel überschreiben. Stattdessen roh sammeln; koAutoFill ordnet später dem berechneten K.O.-Slot zu.
-      const et=m.score&&m.score.et, ftk=m.score&&m.score.ft;
-      const sc=(Array.isArray(et)&&et[0]!=null&&et[1]!=null)? et : ftk;   // Spielstand-Wertung = Stand NACH Verlängerung
+      const et=m.score&&m.score.et, ftk=m.score&&m.score.ft, p=m.score&&m.score.p;
+      const shootout=Array.isArray(p)&&p[0]!=null&&p[1]!=null&&p[0]!==p[1];   // gab es ein Elfmeterschießen?
+      // Spielstand-Wertung: bei Elfmeterschießen der Stand NACH 90 MIN (ft, Unentschieden) – das Elferschießen zählt NUR fürs
+      // Weiterkommen, nicht für die Tipp-Punkte. Ohne Elferschießen der entscheidende Stand (Verlängerung falls gespielt, sonst 90 Min).
+      const sc = shootout ? ftk : ((Array.isArray(et)&&et[0]!=null&&et[1]!=null)? et : ftk);
       if(Array.isArray(sc)&&sc.length>=2&&sc[0]!=null&&sc[1]!=null){
-        let pen=null; const p=m.score&&m.score.p;
-        if(Array.isArray(p)&&p[0]!=null&&p[1]!=null&&p[0]!==p[1]) pen=(p[0]>p[1])?t1:t2;   // Elfmeter-Sieger (Token)
+        const pen = shootout ? ((p[0]>p[1])?t1:t2) : null;   // Elfmeter-Sieger (Token) – nur bei echtem Elfmeterschießen
         kf.push({a:t1,b:t2,sc:[+sc[0],+sc[1]],pen});
       }
       continue;
@@ -2166,7 +2168,7 @@ function renderResultAdmin(){
   const MAXROWS=16;
   const started=FIXTURES.filter(f=>kickoffPassed(f)).map(f=>({f,kt:kickoffTime(f)})).sort((a,b)=>(b.kt||0)-(a.kt||0));
   const show=started.slice(0,MAXROWS);
-  const srcOf=f=> ov[f.id]?"o":(autoResults[f.id]?"a":"x");
+  const srcOf=f=> ov[f.id]?"o":(results[f.id]?"a":"x");   // results enthält Gruppen-Auto + K.O.-Auto + Overrides → K.O. gilt korrekt als „automatisch", nicht „offen"
   // K.O.-Unentschieden brauchen zusätzlich die Elfer-Sieger-Eingabe -> in die Signatur, sonst erschiene sie nicht bei Score-Wechsel.
   const koSig=f=>{ if(f.phase!=="ko") return ""; const r=results[f.id]; return "k"+((r&&r[0]===r[1])?"d":"")+(penWinOf(f.id)||""); };
   const sig=show.map(({f})=>f.id+srcOf(f)+koSig(f)).join("|")+"|n"+started.length;
