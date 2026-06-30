@@ -721,14 +721,17 @@ function parseResults(json){
     if(/\b(round of|achtelfinale|sechzehntelfinale|viertelfinale|halbfinale|quarter|semi|third|final|finale|k\.?o\.?|knockout|play-?off)\b/i.test(m.round||"")){
       // K.O.: NICHT über FIXBYPAIR (gruppen-only) mappen – ein K.O.-Rematch zweier Gruppen-Teams würde sonst ihr
       // Gruppenspiel überschreiben. Stattdessen roh sammeln; koAutoFill ordnet später dem berechneten K.O.-Slot zu.
-      const et=m.score&&m.score.et, ftk=m.score&&m.score.ft, p=m.score&&m.score.p;
-      const shootout=Array.isArray(p)&&p[0]!=null&&p[1]!=null&&p[0]!==p[1];   // gab es ein Elfmeterschießen?
-      // Spielstand-Wertung: bei Elfmeterschießen der Stand NACH 90 MIN (ft, Unentschieden) – das Elferschießen zählt NUR fürs
-      // Weiterkommen, nicht für die Tipp-Punkte. Ohne Elferschießen der entscheidende Stand (Verlängerung falls gespielt, sonst 90 Min).
-      const sc = shootout ? ftk : ((Array.isArray(et)&&et[0]!=null&&et[1]!=null)? et : ftk);
-      if(Array.isArray(sc)&&sc.length>=2&&sc[0]!=null&&sc[1]!=null){
-        const pen = shootout ? ((p[0]>p[1])?t1:t2) : null;   // Elfmeter-Sieger (Token) – nur bei echtem Elfmeterschießen
-        kf.push({a:t1,b:t2,sc:[+sc[0],+sc[1]],pen});
+      // Spielstand-Wertung NUR bis 90 Minuten (Verlängerung komplett raus). Bei 90-Min-Unentschieden entscheidet das
+      // Elfmeterschießen (bzw. real die Verlängerung) NUR übers Weiterkommen + den Elfer-Bonus, NICHT über die getippten Tore.
+      const ftk=m.score&&m.score.ft;
+      if(Array.isArray(ftk)&&ftk.length>=2&&ftk[0]!=null&&ftk[1]!=null){
+        let pen=null;
+        if(+ftk[0]===+ftk[1]){   // 90 Min unentschieden -> Sieger aus Elfmeterschießen; sonst (real in Verlängerung entschieden) dessen Sieger
+          const p=m.score&&m.score.p, et=m.score&&m.score.et;
+          if(Array.isArray(p)&&p[0]!=null&&p[1]!=null&&p[0]!==p[1]) pen=(p[0]>p[1])?t1:t2;
+          else if(Array.isArray(et)&&et[0]!=null&&et[1]!=null&&et[0]!==et[1]) pen=(et[0]>et[1])?t1:t2;
+        }
+        kf.push({a:t1,b:t2,sc:[+ftk[0],+ftk[1]],pen});
       }
       continue;
     }
